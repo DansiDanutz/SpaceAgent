@@ -1,0 +1,49 @@
+--- a/app/L0/_all/mod/_core/admin/views/agent/execution.js
++++ b/app/L0/_all/mod/_core/admin/views/agent/execution.js
+@@ -498,7 +498,37 @@ function createExecutionScope(targetWindow, sharedState) {
+       }
+ 
+       if (key === "space") {
+-        return targetWindow.space;
++        const space = targetWindow.space;
++
++        if (space && (!space.spaces || !space.current)) {
++          return new Proxy(space, {
++            get(target, prop) {
++              if (prop === "spaces") {
++                return {
++                  all: [],
++                  byId: {},
++                  listSpaces: async () => [],
++                  openSpace: async () => {
++                    throw new Error("openSpace() is not available in the Admin context.");
++                  }
++                };
++              }
++
++              if (prop === "current") {
++                return {
++                  readWidget: async () => {
++                    throw new Error("space.current.readWidget() is not available in the Admin context. Use space.api.fileRead() instead.");
++                  },
++                  seeWidget: async () => {
++                    throw new Error("space.current.seeWidget() is not available in the Admin context.");
++                  },
++                  patchWidget: async () => {
++                    throw new Error("space.current.patchWidget() is not available in the Admin context. Use space.api.fileRead() and space.api.fileWrite() instead.");
++                  },
++                  renderWidget: async () => {
++                    throw new Error("space.current.renderWidget() is not available in the Admin context. Use space.api.fileRead() and space.api.fileWrite() instead.");
++                  }
++                };
++              }
++
++              return target[prop];
++            }
++          });
++        }
++
++        return space;
+       }
+ 
+       if (Reflect.has(target, key)) {

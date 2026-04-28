@@ -75,6 +75,26 @@ nano            100.105.148.29   ← Creator agent
 sienna          100.124.88.93    ← Crypto/blockchain
 ```
 
+## Core Patches
+
+Some bugs in the Space Agent L0 firmware affect our customware. Patches are stored in `patches/` and must be re-applied after every Space Agent update.
+
+| Patch | File | Problem | Fix |
+|-------|------|---------|-----|
+| `admin-execution-space-api-fix` | `app/L0/_all/mod/_core/admin/views/agent/execution.js` | `space.spaces` and `space.current` are undefined in Admin context, causing `TypeError` on agent execution | Proxy wrapper with safe fallbacks |
+
+### Apply patches
+
+```powershell
+# PowerShell
+.\patches\apply.ps1
+
+# Or Node.js
+node patches\apply.js
+```
+
+See [`patches/README.md`](patches/README.md) for details.
+
 ## API Keys
 
 API keys are stored in the local `.env` (not committed) and referenced by the onscreen agent config. The War Room widgets fetch from live Tailscale endpoints — no keys needed for read access. Write endpoints on SemeClaw are currently in open mode.
