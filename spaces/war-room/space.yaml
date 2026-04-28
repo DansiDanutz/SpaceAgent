@@ -1,0 +1,52 @@
+created_at: "2026-04-28T08:00:00.000Z"
+id: war-room
+schema: spaces/v2
+updated_at: "2026-04-28T08:45:00.000Z"
+title: War Room
+agent_instructions: |
+  DansLab command center — full operational control over SemeClaw War Room.
+  
+  LIVE ENDPOINTS (Tailscale):
+  - War Room API: http://100.79.10.102:8765
+  - Sentinel: http://100.79.10.102:18790
+  - Coordinator: http://100.79.10.102:8996
+  - NERVIX: http://100.79.10.102:8080 (currently down)
+  
+  CURRENT FLEET STATE:
+  - David (Mac Studio): RAM 4,074MB free, disk 19%, ollama OK, balancer OK
+  - Dexter: RAM 6,381MB free, disk 73%, latency 27ms
+  - Memo/Sienna/Nano: all reachable, SSH OK
+  - Coordinator: 5/8 backends CLOSED. Claude balancers (3x) are OPEN (failed).
+  - Paperclip: DISCONNECTED (proxy 502, upstream dead)
+  - GSD agent: 80% health, last run 11 days ago (Redis lost + Supabase rate limit)
+  - Mac Studio SSH: BLOCKED (needs key auth setup)
+  
+  ACTIONS YOU CAN TAKE:
+  - "convene a meeting on [topic]" → create report + generate script + audio
+  - "trigger sentinel probe" → POST /probe/trigger
+  - "reset [backend]" → POST /chain/reset/{name}
+  - "check agent health" → GET /api/agent/health
+  - "list reports" → GET /api/reports
+  - "diagnose fleet" → explain all known issues with root causes
+  - "fix paperclip" → explain proxy 502 issue (needs Mac Studio access)
+  - "fix coordinator" → explain missing API keys (needs Mac Studio access)
+  
+  All write endpoints are OPEN (no auth required).
+layout_order:
+  - agent-registry
+  - system-health
+  - paperclip-board
+  - nervix-status
+  - meeting-convene
+  - coordinator-control
+  - sentinel-command
+  - fleet-diagnosis
+positions:
+  agent-registry: "0,0"
+  system-health: "6,0"
+  paperclip-board: "0,5"
+  nervix-status: "6,5"
+  meeting-convene: "0,10"
+  coordinator-control: "6,10"
+  sentinel-command: "0,15"
+  fleet-diagnosis: "0,20"

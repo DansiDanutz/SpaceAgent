@@ -1,0 +1,96 @@
+cols: 6
+id: quick-commands
+name: Quick Commands
+renderer: |-
+  async (parent) => {
+    const commands = [
+      { label: "Space Agent Doctor", cmd: "node space doctor --json", desc: "Run health checks" },
+      { label: "Git Status", cmd: "git status", desc: "Check repo state" },
+      { label: "Docker PS", cmd: "docker ps -a", desc: "List containers" },
+      { label: "Azure Login", cmd: "az login", desc: "Auth to Azure" },
+      { label: "Azure Costs", cmd: "az costmanagement query...", desc: "Query spend" },
+      { label: "Node Version", cmd: "node -v && npm -v", desc: "Check versions" },
+      { label: "Python Version", cmd: "python --version", desc: "Check Python" },
+      { label: "UV Sync", cmd: "uv sync --all-extras --dev", desc: "Sync deps" },
+      { label: "SemeClaw Status", cmd: "semeclaw doctor --json", desc: "War room health" },
+      { label: "Nervix Deploy", cmd: "vercel --prod", desc: "Deploy Nervix" },
+    ]
+
+    parent.innerHTML = `
+      <style>
+        .qc-root {
+          font-family: system-ui, sans-serif;
+          padding: clamp(8px, 2vw, 16px);
+          color: #e0e0e0;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        .qc-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: clamp(6px, 1.5vw, 12px);
+        }
+        .qc-header h2 {
+          margin: 0;
+          font-size: clamp(14px, 2.5vw, 20px);
+        }
+        .qc-list {
+          flex: 1;
+          overflow-y: auto;
+          min-height: 0;
+        }
+        .qc-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: clamp(4px, 1vw, 8px) 0;
+          border-bottom: 1px solid #2d2d44;
+          cursor: pointer;
+        }
+        .qc-item:hover .qc-label { color: #58a6ff; }
+        .qc-label {
+          font-size: clamp(10px, 1.3vw, 14px);
+          font-weight: 600;
+          min-width: 120px;
+        }
+        .qc-cmd {
+          font-family: monospace;
+          font-size: clamp(9px, 1.1vw, 12px);
+          color: #a5b4fc;
+          background: #1f2937;
+          padding: 2px 6px;
+          border-radius: 4px;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .qc-desc {
+          font-size: clamp(9px, 1.1vw, 12px);
+          color: #6e7681;
+          min-width: 80px;
+          text-align: right;
+        }
+      </style>
+      <div class="qc-root">
+        <div class="qc-header">
+          <h2>⚡ Quick Commands</h2>
+        </div>
+        <div class="qc-list" id="qc-list"></div>
+      </div>`
+
+    document.getElementById("qc-list").innerHTML = commands.map(c => `
+      <div class="qc-item" onclick="navigator.clipboard.writeText('${c.cmd.replace(/'/g, "\\'")}')">
+        <span class="qc-label">${c.label}</span>
+        <span class="qc-cmd">${c.cmd}</span>
+        <span class="qc-desc">${c.desc}</span>
+      </div>
+    `).join("")
+  }
+rows: 10
+schema: space-widget/v1

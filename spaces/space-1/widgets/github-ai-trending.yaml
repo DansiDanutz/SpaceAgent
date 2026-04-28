@@ -1,0 +1,260 @@
+cols: 12
+id: github-ai-trending
+name: Trending AI Repos
+renderer: |-
+  async function ghRenderer(parent, currentSpace) {
+      const PER_PAGE = 10
+      const WID = "github-ai-trending"
+      const sizes = [
+        { label:"S", cols:6, rows:5 },
+        { label:"M", cols:8, rows:7 },
+        { label:"L", cols:12, rows:10 },
+        { label:"XL", cols:16, rows:14 }
+      ]
+      const sizeIcons = [{w:6,h:6},{w:8,h:8},{w:11,h:11},{w:14,h:14}]
+      const filters = [
+        {key:"agent",label:"🤖 Agents",topic:"ai-agent"},
+        {key:"tools",label:"🛠 Tools",topic:"ai-tools"},
+        {key:"design",label:"🎨 Design",topic:"ai-design"},
+        {key:"architecture",label:"🏗 Architecture",topic:"ai-framework"}
+      ]
+      const accent = "#58a6ff"
+      const prefix = "gh"
+  
+      parent.innerHTML = `
+        <style>
+          .${prefix}-root{font-family:system-ui,sans-serif;padding:clamp(6px,1.5vw,16px);color:#e0e0e0;width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;position:relative}
+          .${prefix}-header{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:4px;margin-bottom:clamp(4px,1vw,8px)}
+          .${prefix}-title-area{display:flex;flex-direction:column;gap:2px}
+          .${prefix}-title-row{display:flex;align-items:center;gap:8px}
+          .${prefix}-header h2{margin:0;font-size:clamp(12px,2vw,18px);white-space:nowrap}
+          .${prefix}-minmax{background:none;border:1px solid #2d2d44;border-radius:6px;color:#8b949e;cursor:pointer;padding:2px 6px;font-size:clamp(11px,1.2vw,15px);transition:all .2s;line-height:1}
+          .${prefix}-minmax:hover{color:${accent};border-color:${accent}}
+          .${prefix}-refresh{background:none;border:1px solid #2d2d44;border-radius:6px;color:#8b949e;cursor:pointer;padding:2px 6px;font-size:clamp(11px,1.2vw,15px);transition:all .2s;line-height:1}
+          .${prefix}-refresh:hover{color:${accent};border-color:${accent};transform:rotate(90deg)}
+          .${prefix}-refresh.spinning{animation:${prefix}-spin .8s linear infinite}
+          @keyframes ${prefix}-spin{to{transform:rotate(360deg)}}
+          .${prefix}-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+          .${prefix}-date{font-size:clamp(8px,1vw,11px);color:#8b949e}
+          .${prefix}-updated-label{font-size:clamp(7px,.85vw,10px);color:#4a5568}
+          .${prefix}-controls{display:flex;align-items:center;gap:clamp(4px,.6vw,8px);flex-wrap:wrap}
+          .${prefix}-size-group{display:flex;gap:3px;align-items:center}
+          .${prefix}-size-btn{width:clamp(16px,2vw,26px);height:clamp(16px,2vw,26px);border:1.5px solid #2d2d44;border-radius:4px;background:#1a1a2e;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0}
+          .${prefix}-size-btn .${prefix}-si{background:#8b949e;border-radius:1px;transition:background .15s}
+          .${prefix}-size-btn.active{border-color:${accent};background:#1a2744}
+          .${prefix}-size-btn.active .${prefix}-si{background:${accent}}
+          .${prefix}-size-btn:hover:not(.active){border-color:#444}
+          .${prefix}-size-btn:hover:not(.active) .${prefix}-si{background:#aaa}
+          .${prefix}-tabs{display:flex;gap:clamp(3px,.5vw,6px);margin-bottom:clamp(4px,.8vw,8px);flex-wrap:wrap}
+          .${prefix}-tab{padding:clamp(2px,.4vw,6px) clamp(6px,1vw,14px);border-radius:6px;border:1px solid #2d2d44;background:#1a1a2e;color:#8b949e;cursor:pointer;font-size:clamp(9px,1.2vw,13px);font-family:system-ui;transition:all .15s}
+          .${prefix}-tab.active{border-color:${accent};background:#1a2744;color:${accent};font-weight:600}
+          .${prefix}-list{flex:1;min-height:0;display:flex;flex-direction:column}
+          .${prefix}-cards{flex:1;min-height:0}
+          .${prefix}-card{background:#1a1a2e;border-radius:clamp(4px,.6vw,8px);padding:clamp(4px,.8vw,10px) clamp(6px,1vw,12px);margin-bottom:clamp(2px,.4vw,5px);cursor:pointer;transition:background .2s}
+          .${prefix}-card:hover{background:#1f1f38}
+          .${prefix}-card-top{display:flex;justify-content:space-between;align-items:start;gap:clamp(3px,.6vw,8px)}
+          .${prefix}-card-info{flex:1;min-width:0}
+          .${prefix}-card-name{display:flex;align-items:center;gap:clamp(3px,.5vw,6px);flex-wrap:wrap}
+          .${prefix}-card-rank{color:#8b949e;font-size:clamp(8px,1vw,12px);font-weight:700;min-width:16px}
+          .${prefix}-card-link{color:${accent};font-weight:600;text-decoration:none;font-size:clamp(9px,1.1vw,13px);word-break:break-all}
+          .${prefix}-card-arrow{font-size:clamp(7px,.8vw,10px);color:#6e7681}
+          .${prefix}-card-desc{margin:clamp(1px,.3vw,3px) 0 0 clamp(14px,2.5vw,28px);font-size:clamp(8px,.95vw,11px);color:#8b949e;line-height:1.35}
+          .${prefix}-card-meta{margin:clamp(1px,.3vw,3px) 0 0 clamp(14px,2.5vw,28px);display:flex;gap:clamp(3px,.4vw,6px);flex-wrap:wrap;align-items:center}
+          .${prefix}-lang{font-size:clamp(7px,.8vw,10px);padding:1px clamp(3px,.4vw,6px);border-radius:6px;background:#1f2937;color:#79c0ff}
+          .${prefix}-card-updated{font-size:clamp(7px,.8vw,10px);color:#6e7681}
+          .${prefix}-stars{white-space:nowrap;font-size:clamp(8px,1vw,12px);color:#f0c040}
+          .${prefix}-detail{display:none;margin-top:clamp(4px,.6vw,8px);padding-top:clamp(4px,.6vw,8px);border-top:1px solid #2d2d44}
+          .${prefix}-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:clamp(4px,.8vw,10px)}
+          .${prefix}-summary-box{background:#0d1117;border-radius:6px;padding:clamp(4px,.8vw,10px)}
+          .${prefix}-summary-label{font-size:clamp(8px,.9vw,11px);font-weight:700;margin-bottom:clamp(2px,.3vw,4px)}
+          .${prefix}-summary-text{font-size:clamp(8px,.9vw,11px);color:#c9d1d9;line-height:1.45;margin:0;word-break:break-word}
+          .${prefix}-loading{color:#8b949e;font-size:clamp(8px,.9vw,11px);padding:clamp(2px,.5vw,6px) 0}
+          .${prefix}-pager{display:flex;justify-content:center;align-items:center;gap:clamp(4px,.8vw,10px);padding:clamp(4px,.6vw,8px) 0 0;flex-shrink:0}
+          .${prefix}-page-btn{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;color:#8b949e;cursor:pointer;padding:clamp(2px,.4vw,5px) clamp(8px,1.2vw,14px);font-size:clamp(9px,1vw,12px);font-family:system-ui;transition:all .15s}
+          .${prefix}-page-btn:hover:not(:disabled){border-color:${accent};color:${accent}}
+          .${prefix}-page-btn:disabled{opacity:.3;cursor:default}
+          .${prefix}-page-info{font-size:clamp(8px,1vw,11px);color:#8b949e}
+          /* Mini mode */
+          .${prefix}-mini{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:6px;padding:12px;transition:all .2s}
+          .${prefix}-mini:hover{background:#1a1a2e;border-radius:8px}
+          .${prefix}-mini-icon{font-size:clamp(20px,4vw,32px)}
+          .${prefix}-mini-name{font-size:clamp(10px,1.4vw,14px);font-weight:600;color:${accent};text-align:center}
+          .${prefix}-mini-count{font-size:clamp(8px,1vw,11px);color:#8b949e}
+          .${prefix}-mini-hint{font-size:clamp(7px,.8vw,9px);color:#4a5568}
+        </style>
+        <div class="${prefix}-root">
+          <div class="${prefix}-full" id="${prefix}-full">
+            <div class="${prefix}-header">
+              <div class="${prefix}-title-area">
+                <div class="${prefix}-title-row">
+                  <h2>🔥 Trending AI Repos</h2>
+                  <button class="${prefix}-minmax" id="${prefix}-minbtn" title="Minimize">➖</button>
+                  <button class="${prefix}-refresh" id="${prefix}-refresh" title="Refresh">🔄</button>
+                </div>
+                <div class="${prefix}-meta">
+                  <span class="${prefix}-date" id="${prefix}-date"></span>
+                  <span class="${prefix}-updated-label" id="${prefix}-updated"></span>
+                </div>
+              </div>
+              <div class="${prefix}-controls">
+                <div class="${prefix}-size-group" id="${prefix}-sizes"></div>
+              </div>
+            </div>
+            <div class="${prefix}-tabs" id="${prefix}-tabs"></div>
+            <div class="${prefix}-list">
+              <div class="${prefix}-cards" id="${prefix}-cards"></div>
+              <div class="${prefix}-pager" id="${prefix}-pager"></div>
+            </div>
+          </div>
+          <div class="${prefix}-mini" id="${prefix}-mini">
+            <div class="${prefix}-mini-icon">🔥</div>
+            <div class="${prefix}-mini-name">Trending AI Repos</div>
+            <div class="${prefix}-mini-count" id="${prefix}-mini-count">20 repos</div>
+            <div class="${prefix}-mini-hint">click to expand</div>
+          </div>
+        </div>`
+  
+      document.getElementById(`${prefix}-date`).textContent = new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})
+      function setUpdated(){document.getElementById(`${prefix}-updated`).textContent="Updated "+new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"})}
+      setUpdated()
+  
+      // Minimize / Maximize
+      document.getElementById(`${prefix}-minbtn`).onclick = (e) => {
+        e.stopPropagation()
+        document.getElementById(`${prefix}-full`).style.display = "none"
+        document.getElementById(`${prefix}-mini`).style.display = "flex"
+      }
+      document.getElementById(`${prefix}-mini`).onclick = () => {
+        document.getElementById(`${prefix}-mini`).style.display = "none"
+        document.getElementById(`${prefix}-full`).style.display = "flex"
+        document.getElementById(`${prefix}-full`).style.flexDirection = "column"
+        document.getElementById(`${prefix}-full`).style.height = "100%"
+      }
+  
+      // Size buttons — use renderWidget with named function
+      const sizeGroup = document.getElementById(`${prefix}-sizes`)
+      const currentCols = 12, currentRows = 10
+      sizeGroup.innerHTML = sizes.map((s,i) => {
+        const isActive = s.cols === currentCols && s.rows === currentRows
+        return `<button class="${prefix}-size-btn${isActive?" active":""}" data-idx="${i}" title="${s.label} (${s.cols}×${s.rows})"><span class="${prefix}-si" style="width:${sizeIcons[i].w}px;height:${sizeIcons[i].h}px;"></span></button>`
+      }).join("")
+      sizeGroup.querySelectorAll(`.${prefix}-size-btn`).forEach(btn => {
+        btn.onclick = async (e) => {
+          e.stopPropagation()
+          const s = sizes[parseInt(btn.dataset.idx)]
+          await currentSpace.renderWidget({ id: WID, name: "Trending AI Repos", cols: s.cols, rows: s.rows, renderer: ghRenderer })
+        }
+      })
+  
+      // Fetch data
+      const allData = {}
+      const pages = { agent:1, tools:1, design:1, architecture:1 }
+      for (const f of filters) {
+        try {
+          const res = await fetch(`https://api.github.com/search/repositories?q=topic:${f.topic}&sort=stars&order=desc&per_page=20`, {
+            headers: { Accept: "application/vnd.github.mercy-preview+json" }
+          })
+          const data = await res.json()
+          allData[f.key] = (data.items || []).map(r => ({
+            name: r.full_name, desc: r.description || "",
+            stars: r.stargazers_count, lang: r.language || "",
+            url: r.html_url,
+            updated: new Date(r.pushed_at || r.updated_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})
+          }))
+        } catch (e) { allData[f.key] = [] }
+      }
+  
+      // Update mini count
+      const totalCount = Object.values(allData).reduce((s,a) => s + a.length, 0)
+      document.getElementById(`${prefix}-mini-count`).textContent = `${totalCount} repos`
+  
+      // Refresh
+      document.getElementById(`${prefix}-refresh`).onclick = async () => {
+        const btn = document.getElementById(`${prefix}-refresh`)
+        btn.classList.add("spinning")
+        for (const f of filters) {
+          try {
+            const res = await fetch(`https://api.github.com/search/repositories?q=topic:${f.topic}&sort=stars&order=desc&per_page=20`, {
+              headers: { Accept: "application/vnd.github.mercy-preview+json" }
+            })
+            const data = await res.json()
+            allData[f.key] = (data.items || []).map(r => ({
+              name: r.full_name, desc: r.description || "",
+              stars: r.stargazers_count, lang: r.language || "",
+              url: r.html_url,
+              updated: new Date(r.pushed_at || r.updated_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})
+            }))
+          } catch (e) {}
+        }
+        const activeTab = document.querySelector(`.${prefix}-tab.active`)
+        if (activeTab) renderPage(activeTab.dataset.key)
+        setUpdated()
+        btn.classList.remove("spinning")
+      }
+  
+      async function translateToRo(text) {
+        try {
+          const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0,500))}&langpair=en|ro`)
+          const data = await res.json()
+          return data.responseData?.translatedText || text
+        } catch (e) { return text }
+      }
+      async function fetchReadme(repoName) {
+        try {
+          const res = await fetch(`https://api.github.com/repos/${repoName}/readme`, { headers: { Accept: "application/vnd.github.raw+json" } })
+          if (!res.ok) return null
+          const text = await res.text()
+          const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("#") && !l.startsWith("![") && !l.startsWith("<img"))
+          return lines.slice(0,15).join(" ").slice(0,600)
+        } catch (e) { return null }
+      }
+  
+      function renderPage(key) {
+        const repos = allData[key] || []
+        const page = pages[key] || 1
+        const totalPages = Math.max(1, Math.ceil(repos.length / PER_PAGE))
+        const start = (page - 1) * PER_PAGE
+        const slice = repos.slice(start, start + PER_PAGE)
+        const cards = document.getElementById(`${prefix}-cards`)
+  
+        if (!slice.length) { cards.innerHTML = `<div class="${prefix}-loading">No repos found.</div>` }
+        else {
+          cards.innerHTML = slice.map((r,i) => {
+            const rank = start + i + 1
+            return `<div class="${prefix}-card" data-idx="${start+i}" data-key="${key}"><div class="${prefix}-card-top"><div class="${prefix}-card-info"><div class="${prefix}-card-name"><span class="${prefix}-card-rank">#${rank}</span><a href="${r.url}" target="_blank" onclick="event.stopPropagation()" class="${prefix}-card-link">${r.name}</a><span class="${prefix}-card-arrow">▼</span></div><p class="${prefix}-card-desc">${r.desc.slice(0,120)}</p><div class="${prefix}-card-meta">${r.lang?`<span class="${prefix}-lang">${r.lang}</span>`:""}<span class="${prefix}-card-updated">${r.updated}</span></div></div><div class="${prefix}-stars">⭐ ${r.stars.toLocaleString()}</div></div><div class="${prefix}-detail"></div></div>`
+          }).join("")
+  
+          cards.querySelectorAll(`.${prefix}-card`).forEach(card => {
+            card.onclick = async () => {
+              const detail = card.querySelector(`.${prefix}-detail`)
+              if (detail.style.display === "block" && detail.innerHTML) { detail.style.display = "none"; return }
+              const idx = parseInt(card.dataset.idx)
+              const repo = allData[card.dataset.key][idx]
+              detail.innerHTML = `<div class="${prefix}-loading">Loading summary…</div>`
+              detail.style.display = "block"
+              const readme = await fetchReadme(repo.name)
+              const en = readme || repo.desc || "No description available."
+              const ro = await translateToRo(en)
+              detail.innerHTML = `<div class="${prefix}-summary-grid"><div class="${prefix}-summary-box"><div class="${prefix}-summary-label" style="color:${accent};">🇬🇧 English</div><p class="${prefix}-summary-text">${en}</p></div><div class="${prefix}-summary-box"><div class="${prefix}-summary-label" style="color:#f97316;">🇷🇴 Română</div><p class="${prefix}-summary-text">${ro}</p></div></div>`
+            }
+          })
+        }
+  
+        const pager = document.getElementById(`${prefix}-pager`)
+        if (totalPages <= 1) { pager.innerHTML = ""; return }
+        pager.innerHTML = `<button class="${prefix}-page-btn" id="${prefix}-prev" ${page<=1?"disabled":""}>◀ Prev</button><span class="${prefix}-page-info">Page ${page} of ${totalPages}</span><button class="${prefix}-page-btn" id="${prefix}-next" ${page>=totalPages?"disabled":""}>Next ▶</button>`
+        document.getElementById(`${prefix}-prev`).onclick = () => { if (pages[key]>1) { pages[key]--; renderPage(key) } }
+        document.getElementById(`${prefix}-next`).onclick = () => { if (pages[key]<totalPages) { pages[key]++; renderPage(key) } }
+      }
+  
+      function renderTabs(activeKey) {
+        const tabs = document.getElementById(`${prefix}-tabs`)
+        tabs.innerHTML = filters.map(f => `<button class="${prefix}-tab${f.key===activeKey?" active":""}" data-key="${f.key}">${f.label}</button>`).join("")
+        tabs.querySelectorAll(`.${prefix}-tab`).forEach(btn => { btn.onclick = () => { renderTabs(btn.dataset.key); renderPage(btn.dataset.key) } })
+      }
+  
+      renderTabs("agent")
+      renderPage("agent")
+    }
+rows: 10
+schema: space-widget/v1

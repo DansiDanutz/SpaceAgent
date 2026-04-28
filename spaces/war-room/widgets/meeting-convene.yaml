@@ -1,0 +1,111 @@
+schema: space-widget/v1
+cols: 6
+rows: 5
+title: Convene Meeting
+refresh_interval: 0
+renderer: |
+  async function(api) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:12px;font-family:system-ui;height:100%;overflow:auto;';
+    
+    container.innerHTML = `
+      <div style="font-weight:600;font-size:14px;color:#e2e8f0;margin-bottom:10px;">🎙️ Convene War Room</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input id="meeting-topic" type="text" placeholder="Topic or question..." 
+          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:12px;outline:none;"
+          onkeydown="if(event.key==='Enter')document.getElementById('btn-convene').click()">
+        <button id="btn-convene" style="background:#22c55e;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Convene</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="quick-topic" data-topic="Review NERVIX roadmap" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:3px 8px;color:#94a3b8;font-size:10px;cursor:pointer;">NERVIX roadmap</button>
+        <button class="quick-topic" data-topic="Competitor analysis update" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:3px 8px;color:#94a3b8;font-size:10px;cursor:pointer;">Competitors</button>
+        <button class="quick-topic" data-topic="Infrastructure health review" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:3px 8px;color:#94a3b8;font-size:10px;cursor:pointer;">Infra health</button>
+        <button class="quick-topic" data-topic="Q2 pricing and GTM strategy" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:3px 8px;color:#94a3b8;font-size:10px;cursor:pointer;">Q2 strategy</button>
+      </div>
+      <div id="meeting-log" style="font-size:10px;color:#64748b;max-height:120px;overflow:auto;"></div>
+      <div id="meeting-result" style="margin-top:8px;"></div>
+    `;
+    
+    const log = container.querySelector('#meeting-log');
+    const result = container.querySelector('#meeting-result');
+    
+    function addLog(msg, color='#64748b') {
+      const line = document.createElement('div');
+      line.style.color = color;
+      line.style.marginBottom = '2px';
+      line.textContent = `[${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}] ${msg}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+    
+    // Quick topic buttons
+    container.querySelectorAll('.quick-topic').forEach(btn => {
+      btn.onclick = () => {
+        container.querySelector('#meeting-topic').value = btn.dataset.topic;
+      };
+    });
+    
+    container.querySelector('#btn-convene').onclick = async () => {
+      const topic = container.querySelector('#meeting-topic').value.trim();
+      if (!topic) return;
+      
+      const btn = container.querySelector('#btn-convene');
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      result.innerHTML = '';
+      
+      const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40) + '-' + Math.random().toString(36).substring(2, 6);
+      
+      try {
+        addLog(`Creating report: ${slug}...`, '#94a3b8');
+        
+        const reportResp = await fetch('http://100.79.10.102:8765/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: `${slug}.md`,
+            content: `# ${topic}\n\n## Context\n\nThis meeting was convened from Space Agent on ${new Date().toISOString()}.\n\n## Analysis\n\nThe War Room agents will analyze this topic and provide recommendations.\n\n## Recommendation\n\nAwaiting agent deliberation.\n`
+          })
+        });
+        
+        if (!reportResp.ok) throw new Error('Report creation failed: ' + reportResp.status);
+        const report = await reportResp.json();
+        addLog(`Report created: ${report.name}`, '#22c55e');
+        
+        addLog('Generating meeting script...', '#94a3b8');
+        const scriptResp = await fetch(`http://100.79.10.102:8765/api/meeting/script?name=${encodeURIComponent(report.name)}`);
+        if (!scriptResp.ok) throw new Error('Script generation failed: ' + scriptResp.status);
+        const script = await scriptResp.json();
+        addLog(`Script ready: ${script.segments?.length || 0} segments · ${script.attendees?.join(', ') || ''}`, '#22c55e');
+        
+        addLog('Generating audio MP3...', '#94a3b8');
+        const audioResp = await fetch(`http://100.79.10.102:8765/api/meeting/audio?name=${encodeURIComponent(report.name)}`);
+        if (!audioResp.ok) throw new Error('Audio generation failed: ' + audioResp.status);
+        addLog('Audio generated successfully', '#22c55e');
+        
+        addLog('Pinning meeting...', '#94a3b8');
+        await fetch(`http://100.79.10.102:8765/api/meeting/pin?name=${encodeURIComponent(report.name)}`, { method: 'POST' });
+        addLog('Meeting pinned', '#22c55e');
+        
+        result.innerHTML = `
+          <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:10px;">
+            <div style="font-size:12px;font-weight:600;color:#22c55e;margin-bottom:4px;">✅ Meeting convened</div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">${topic}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <a href="http://100.79.10.102:8765/embed?meeting=${encodeURIComponent(report.name)}&v=2&theme=dark" target="_blank" style="font-size:10px;color:#e2e8f0;background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:4px;text-decoration:none;">🎭 Play Meeting</a>
+              <a href="http://100.79.10.102:8765/api/meeting/audio?name=${encodeURIComponent(report.name)}" target="_blank" style="font-size:10px;color:#e2e8f0;background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:4px;text-decoration:none;">🔊 Download MP3</a>
+              <a href="http://100.79.10.102:8765/api/reports/content?name=${encodeURIComponent(report.name)}" target="_blank" style="font-size:10px;color:#e2e8f0;background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:4px;text-decoration:none;">📄 Report</a>
+            </div>
+          </div>
+        `;
+      } catch (e) {
+        addLog('ERROR: ' + e.message, '#ef4444');
+        result.innerHTML = `<div style="color:#ef4444;font-size:11px;padding:8px;">🔴 Failed: ${e.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    };
+    
+    return container;
+  }

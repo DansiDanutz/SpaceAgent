@@ -1,0 +1,116 @@
+schema: space-widget/v1
+cols: 6
+rows: 5
+title: NERVIX Status
+refresh_interval: 60000
+renderer: |
+  async function(api) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:12px;font-family:system-ui;height:100%;overflow:auto;';
+    
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;';
+    header.innerHTML = '<span style="font-weight:600;font-size:14px;color:#e2e8f0;">🧠 SemeClaw Agent</span><span id="nv-last-update" style="font-size:10px;color:#64748b;">loading...</span>';
+    container.appendChild(header);
+    
+    const grid = document.createElement('div');
+    grid.id = 'nv-grid';
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:6px;';
+    grid.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;padding:20px;">⏳ Fetching manifest...</div>';
+    container.appendChild(grid);
+    
+    async function fetchStatus() {
+      try {
+        const [manifestResp, stateResp, meetingResp, coordResp] = await Promise.all([
+          fetch('http://100.79.10.102:8765/api/agent/manifest', { cache: 'no-store' }).catch(() => null),
+          fetch('http://100.79.10.102:8765/api/state', { cache: 'no-store' }).catch(() => null),
+          fetch('http://100.79.10.102:8765/api/meeting/list', { cache: 'no-store' }).catch(() => null),
+          fetch('http://100.79.10.102:8996/chain', { cache: 'no-store' }).catch(() => null)
+        ]);
+        
+        let html = '';
+        
+        // Manifest header
+        if (manifestResp && manifestResp.ok) {
+          const m = await manifestResp.json();
+          html += `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;font-weight:600;color:#e2e8f0;">${m.name || 'SemeClaw'}</span>
+              <span style="font-size:10px;color:#22c55e;background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:4px;font-weight:600;">v${m.version || '?'}</span>
+            </div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">${m.capabilities ? m.capabilities.length + ' capabilities' : ''} · tenant: ${m.tenant || 'default'}</div>
+          </div>`;
+          
+          // Capabilities chips
+          if (m.capabilities) {
+            const caps = m.capabilities.slice(0, 12);
+            html += `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px;">`;
+            for (const c of caps) {
+              html += `<span style="font-size:8px;color:#94a3b8;background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;text-transform:uppercase;">${c}</span>`;
+            }
+            if (m.capabilities.length > 12) {
+              html += `<span style="font-size:8px;color:#64748b;">+${m.capabilities.length - 12}</span>`;
+            }
+            html += `</div>`;
+          }
+        }
+        
+        // Meetings
+        if (meetingResp && meetingResp.ok) {
+          const mt = await meetingResp.json();
+          const items = mt.items || [];
+          html += `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-bottom:6px;">
+            <div style="background:rgba(255,255,255,0.03);border-radius:6px;padding:6px;text-align:center;">
+              <div style="font-size:16px;font-weight:700;color:#22c55e;">${items.length}</div>
+              <div style="font-size:9px;color:#64748b;">Meetings</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border-radius:6px;padding:6px;text-align:center;">
+              <div style="font-size:16px;font-weight:700;color:#22c55e;">${mt.retention_hours?.meetings || 48}h</div>
+              <div style="font-size:9px;color:#64748b;">Retention</div>
+            </div>
+          </div>`;
+          
+          if (items.length) {
+            html += `<div style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:600;margin-bottom:3px;">Saved Meetings</div>`;
+            for (const item of items.slice(0, 3)) {
+              html += `<div style="font-size:10px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 0;">
+                ${item.saved ? '💾' : '🕐'} ${item.file?.replace(/\.mp3$/, '') || 'unknown'} · ${item.size_kb?.toFixed(0) || '?'}KB
+              </div>`;
+            }
+          }
+        }
+        
+        // Coordinator backends
+        if (coordResp && coordResp.ok) {
+          const chain = await coordResp.json();
+          const backends = chain.backends || [];
+          const closed = backends.filter(b => b.state === 'CLOSED').length;
+          const open = backends.filter(b => b.state === 'OPEN').length;
+          
+          html += `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;margin-top:6px;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:600;margin-bottom:4px;">LLM Backends</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">`;
+          for (const b of backends) {
+            const color = b.state === 'CLOSED' ? '#22c55e' : '#ef4444';
+            const label = b.name.replace(/-(coder|qwen|flash|glm5)$/, '').replace(/-/, ' ');
+            html += `<span style="font-size:8px;color:${color};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;white-space:nowrap;" title="${b.model || ''} · ${b.success_rate?.toFixed(0) || 0}% success">${label}</span>`;
+          }
+          html += `</div>
+            <div style="font-size:9px;color:#64748b;margin-top:4px;">${closed} healthy · ${open} failed${chain.safe_mode ? ' · 🔴 SAFE MODE' : ''}</div>
+          </div>`;
+        }
+        
+        grid.innerHTML = html || '<div style="color:#64748b;font-size:12px;text-align:center;padding:20px;">No data available</div>';
+        container.querySelector('#nv-last-update').textContent = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' EET';
+      } catch (e) {
+        grid.innerHTML = `<div style="color:#ef4444;font-size:12px;text-align:center;padding:20px;">🔴 SemeClaw unreachable<br/><span style="font-size:10px;color:#64748b;">${e.message}</span></div>`;
+        container.querySelector('#nv-last-update').textContent = 'failed';
+      }
+    }
+    
+    await fetchStatus();
+    const interval = setInterval(fetchStatus, 60000);
+    container._cleanup = () => clearInterval(interval);
+    
+    return container;
+  }

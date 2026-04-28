@@ -1,0 +1,50 @@
+full_name: "Dansi"
+preferred_name: "Dansi"
+language: en
+locale: en-US
+timezone: Europe/Bucharest
+role: "Cloud Architect & Full-Stack Developer"
+interests:
+  - Azure infrastructure and cost optimization
+  - AI agent frameworks and tooling
+  - Web dashboards and data visualization
+  - Open-source tooling and automation
+  - DevOps and CI/CD workflows
+communication_style:
+  - concise and actionable
+  - prefer code examples over long explanations
+  - when in doubt, show the command or script
+  - use Romanian when explicitly asked
+tech_stack:
+  primary:
+    - Azure (Functions, Container Apps, AKS, Storage, AI)
+    - Node.js / JavaScript
+    - Python
+    - Docker
+  frontend:
+    - HTML5 / CSS3
+    - Tailwind CSS
+    - React / Next.js
+    - shadcn/ui
+  infrastructure:
+    - Bicep / Terraform
+    - GitHub Actions
+    - Azure DevOps
+  tools:
+    - VS Code
+    - Claude Code CLI
+    - Kimi CLI
+    - Space Agent
+current_projects:
+  - name: "SemeClaw War Room"
+    description: "Dashboard and command center for AI operations"
+    path: "~/Desktop/SemeClaw"
+  - name: "Space Agent Setup"
+    description: "Customizing and superpowering Space Agent"
+    path: "~/.space-agent"
+preferences:
+  - always suggest performance optimizations
+  - prefer managed identity over connection strings
+  - prefer infrastructure-as-code over manual portal changes
+  - keep secrets in Key Vault, never in code
+  - use dark mode UI themes when possible

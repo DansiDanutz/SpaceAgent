@@ -1,0 +1,99 @@
+schema: space-widget/v1
+cols: 6
+rows: 5
+title: Coordinator Control
+refresh_interval: 15000
+renderer: |
+  async function(api) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:12px;font-family:system-ui;height:100%;overflow:auto;';
+    
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;';
+    header.innerHTML = '<span style="font-weight:600;font-size:14px;color:#e2e8f0;">⚡ LLM Coordinator</span><span id="coord-last-update" style="font-size:10px;color:#64748b;">loading...</span>';
+    container.appendChild(header);
+    
+    const grid = document.createElement('div');
+    grid.id = 'coord-grid';
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:5px;';
+    grid.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;padding:20px;">⏳ Fetching backends...</div>';
+    container.appendChild(grid);
+    
+    async function fetchBackends() {
+      try {
+        const resp = await fetch('http://100.79.10.102:8996/chain', { cache: 'no-store' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        
+        const backends = data.backends || [];
+        let html = '';
+        
+        // Summary bar
+        const closed = backends.filter(b => b.state === 'CLOSED').length;
+        const open = backends.filter(b => b.state === 'OPEN').length;
+        const safeColor = data.safe_mode ? '#ef4444' : '#22c55e';
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 10px;margin-bottom:8px;">
+          <span style="font-size:11px;color:#e2e8f0;font-weight:600;">${closed}/${backends.length} healthy</span>
+          <span style="font-size:10px;color:${safeColor};background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:4px;">safe_mode: ${data.safe_mode}</span>
+          <span style="font-size:10px;color:#64748b;">queue: ${data.queue_depth}</span>
+        </div>`;
+        
+        for (const b of backends) {
+          const isOpen = b.state === 'OPEN';
+          const color = isOpen ? '#ef4444' : '#22c55e';
+          const bg = isOpen ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)';
+          const successRate = b.success_rate !== undefined ? b.success_rate.toFixed(0) : '?';
+          const modelShort = b.model ? b.model.replace(/:.*$/, '').replace(/^.*\//, '') : '—';
+          
+          html += `<div style="background:${bg};border:1px solid ${color}20;border-radius:6px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:5px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:${color};"></div>
+                <span style="font-size:11px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</span>
+                <span style="font-size:9px;color:#64748b;white-space:nowrap;">${modelShort}</span>
+              </div>
+              <div style="font-size:9px;color:#64748b;margin-top:1px;">
+                ${b.total_requests} req · ${b.total_successes} ok · ${successRate}% success · ${b.failure_count} failures
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+              <span style="font-size:9px;color:${color};font-weight:600;text-transform:uppercase;">${b.state}</span>
+              ${isOpen ? `<button class="reset-btn" data-backend="${b.name}" style="background:${color};color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:9px;font-weight:600;cursor:pointer;">Reset</button>` : ''}
+            </div>
+          </div>`;
+        }
+        
+        grid.innerHTML = html;
+        container.querySelector('#coord-last-update').textContent = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' EET';
+        
+        // Bind reset buttons
+        grid.querySelectorAll('.reset-btn').forEach(btn => {
+          btn.onclick = async () => {
+            const name = btn.dataset.backend;
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+              const r = await fetch(`http://100.79.10.102:8996/chain/reset/${encodeURIComponent(name)}`, { method: 'POST' });
+              const data = await r.json();
+              btn.textContent = 'OK';
+              btn.style.background = '#22c55e';
+              setTimeout(fetchBackends, 500);
+            } catch (e) {
+              btn.textContent = 'ERR';
+              btn.style.background = '#ef4444';
+            }
+            setTimeout(() => { btn.disabled = false; btn.textContent = 'Reset'; btn.style.background = '#ef4444'; }, 2000);
+          };
+        });
+      } catch (e) {
+        grid.innerHTML = `<div style="color:#ef4444;font-size:12px;text-align:center;padding:20px;">🔴 Coordinator unreachable<br/><span style="font-size:10px;color:#64748b;">${e.message}</span></div>`;
+        container.querySelector('#coord-last-update').textContent = 'failed';
+      }
+    }
+    
+    await fetchBackends();
+    const interval = setInterval(fetchBackends, 15000);
+    container._cleanup = () => clearInterval(interval);
+    
+    return container;
+  }

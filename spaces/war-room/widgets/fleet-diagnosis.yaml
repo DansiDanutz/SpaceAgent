@@ -1,0 +1,168 @@
+schema: space-widget/v1
+cols: 12
+rows: 8
+title: Fleet Diagnosis & Fixes
+refresh_interval: 60000
+renderer: |
+  async function(api) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:14px;font-family:system-ui;height:100%;overflow:auto;';
+    
+    const header = document.createElement('div');
+    header.style.cssText = 'font-weight:700;font-size:16px;color:#e2e8f0;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;';
+    header.textContent = '🔬 Fleet Diagnosis';
+    container.appendChild(header);
+    
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:8px;';
+    container.appendChild(grid);
+    
+    const ISSUES = [
+      {
+        icon: '📎', title: 'Paperclip DISCONNECTED',
+        severity: 'high',
+        cause: 'SemeClaw is configured to connect to http://127.0.0.1:13100/api. Port 13100 on Mac Studio returns 502 Bad Gateway — a proxy is running but its upstream Paperclip board API is dead. The Paperclip adapter on Dexter (:4281) is a different service (task runner, not board API).',
+        fix: 'On Mac Studio, check what should be on port 13100. Look for: nginx/caddy config, docker containers, or the Paperclip board service. Either start the missing service, or update PAPERCLIP_API_URL in ~/SemeClaw/.env to point to the correct Paperclip instance.',
+        remote: false,
+        cmds: [
+          'sudo lsof -i :13100     # find what listens on 13100',
+          'docker ps | grep paper   # check docker containers',
+          'cat /etc/nginx/conf.d/* | grep -A5 13100   # check nginx',
+          'cat ~/SemeClaw/.env | grep PAPERCLIP       # check current config'
+        ]
+      },
+      {
+        icon: '⚡', title: 'Coordinator: 3/8 backends OPEN',
+        severity: 'medium',
+        cause: 'claude-balancer (8997) returns 503 — upstream unavailable. Z.ai proxies (8998, 8999) return 401 — ZAI_API_KEY not set in Mac Studio environment. Ollama (11434) not reachable — service not running or bound to different interface.',
+        fix: 'Set missing API keys in ~/SemeClaw/.env on Mac Studio. For 8997 503, check the balancer upstream. For Ollama, start it or bind to 0.0.0.0.',
+        remote: false,
+        cmds: [
+          'cat ~/SemeClaw/.env | grep -E "ZAI|OPENROUTER|GOOGLE|ZHIPU"',
+          'curl -s http://127.0.0.1:8997/health | jq .backends   # check balancer upstream',
+          'ollama list    # check if ollama is running',
+          'launchctl list | grep ollama   # check ollama service'
+        ]
+      },
+      {
+        icon: '🖥️', title: 'Mac Studio SSH unreachable',
+        severity: 'high',
+        cause: 'SSH daemon on Mac Studio closes connection immediately OR requires specific keys not present in authorized_keys. Tailscale SSH also fails with "Permission denied".',
+        fix: 'On Mac Studio: enable Remote Login, add SSH keys, or configure Tailscale SSH server.',
+        remote: false,
+        cmds: [
+          'sudo systemsetup -setremotelogin on',
+          'cat ~/.ssh/authorized_keys    # check which keys are allowed',
+          'tailscale status | grep ssh   # check Tailscale SSH status'
+        ]
+      },
+      {
+        icon: '📊', title: 'GSD agent 80% health, idle 11 days',
+        severity: 'low',
+        cause: '2 failures out of 10 runs: "Redis connection lost" and "Supabase rate limit". Agent has not executed since 2026-04-17. GSD is a Supabase-backed cron agent.',
+        fix: 'GSD health will recover automatically when it runs new tasks successfully. If you want to trigger it manually, check the Supabase cron schedule.',
+        remote: true,
+        cmds: [
+          'ssh dexter "curl -s http://127.0.0.1:4281/status"   # check Paperclip adapter'
+        ]
+      },
+      {
+        icon: '🧠', title: 'NERVIX Platform (8080) down',
+        severity: 'medium',
+        cause: 'NERVIX FastAPI service is not running on Mac Studio port 8080.',
+        fix: 'Start NERVIX platform on Mac Studio.',
+        remote: false,
+        cmds: [
+          'cd ~/SemeClaw && uv run python -m nervix_platform.main &',
+          'or: launchctl load ~/Library/LaunchAgents/com.danslab.nervix.plist 2>/dev/null || echo "no launchd config"'
+        ]
+      },
+      {
+        icon: '🔒', title: 'Memo/Sienna/Nano SSH blocked by Tailscale ACL',
+        severity: 'low',
+        cause: 'Tailscale network ACL policy does not permit SSH from seme (Windows) to these droplets. Only Dexter allows SSH.',
+        fix: 'Update Tailscale ACL at https://login.tailscale.com/admin/acls to allow SSH from tag:seme or user DansiDanutz to all droplets.',
+        remote: true,
+        cmds: [
+          '# In Tailscale admin console, add to ACL:',
+          '{ "action": "accept", "src": ["DansiDanutz"], "dst": ["*:*"], "users": ["root", "autogroup:nonroot"] }'
+        ]
+      },
+      {
+        icon: '🐳', title: 'Ollama (11434) not reachable',
+        severity: 'low',
+        cause: 'Ollama service is either not running on Mac Studio, or bound to localhost only (not exposed via Tailscale). Coordinator and Sentinel report it as up because they check from localhost.',
+        fix: 'Start Ollama or bind it to 0.0.0.0. Alternatively, the coordinator can reach it via localhost since coordinator runs on the same Mac Studio.',
+        remote: false,
+        cmds: [
+          'ollama serve    # start ollama, binds to 127.0.0.1:11434 by default',
+          'OLLAMA_HOST=0.0.0.0:11434 ollama serve   # bind to all interfaces'
+        ]
+      }
+    ];
+    
+    let html = '';
+    for (const issue of ISSUES) {
+      const sevColor = issue.severity === 'high' ? '#ef4444' : issue.severity === 'medium' ? '#f59e0b' : '#64748b';
+      const sevBg = issue.severity === 'high' ? 'rgba(239,68,68,0.06)' : issue.severity === 'medium' ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.03)';
+      const remoteBadge = issue.remote 
+        ? '<span style="font-size:9px;color:#22c55e;background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:4px;margin-left:auto;">✓ Can fix remotely</span>'
+        : '<span style="font-size:9px;color:#ef4444;background:rgba(239,68,68,0.1);padding:2px 6px;border-radius:4px;margin-left:auto;">✗ Needs Mac Studio</span>';
+      
+      html += `<div style="background:${sevBg};border:1px solid ${sevColor}20;border-radius:8px;padding:10px 12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:16px;">${issue.icon}</span>
+          <span style="font-size:13px;font-weight:600;color:#e2e8f0;">${issue.title}</span>
+          <span style="font-size:9px;color:${sevColor};background:${sevColor}15;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:600;">${issue.severity}</span>
+          ${remoteBadge}
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;line-height:1.5;"><strong style="color:#64748b;">Root cause:</strong> ${issue.cause}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;line-height:1.5;"><strong style="color:#64748b;">Fix:</strong> ${issue.fix}</div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:6px;padding:8px 10px;font-family:monospace;font-size:10px;color:#cbd5e1;white-space:pre-wrap;overflow-x:auto;">${issue.cmds.join('\n')}</div>
+      </div>`;
+    }
+    
+    // Action buttons for remote fixes
+    html += `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button id="btn-check-dexter" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;">Check Dexter Services</button>
+      <button id="btn-tailscale-status" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;">Tailscale Status</button>
+      <button id="btn-coordinator-reset" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;">Reset All Coordinator Backends</button>
+    </div>`;
+    
+    grid.innerHTML = html;
+    
+    container.querySelector('#btn-check-dexter').onclick = async () => {
+      const out = document.createElement('div');
+      out.style.cssText = 'margin-top:8px;background:rgba(0,0,0,0.2);border-radius:6px;padding:8px;font-family:monospace;font-size:10px;color:#cbd5e1;max-height:150px;overflow:auto;';
+      out.textContent = 'Running: ssh dexter "ps aux | head -20 && free -h && df -h /" ...';
+      container.appendChild(out);
+      try {
+        // Note: In a real widget this would need a proxy endpoint. For now we show the command.
+        out.innerHTML = '<span style="color:#64748b;"># Run this in your terminal:</span>\nssh dexter "ps aux | grep -E \'python|node|docker\' | grep -v grep && free -h && df -h /"';
+      } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+      }
+    };
+    
+    container.querySelector('#btn-tailscale-status').onclick = async () => {
+      window.open('https://login.tailscale.com/admin/machines', '_blank');
+    };
+    
+    container.querySelector('#btn-coordinator-reset').onclick = async () => {
+      const backends = ['claude-balancer','claude-proxy1','claude-proxy2','ollama-coder','ollama-qwen3','openrouter-qwen','gemini-flash','zai-glm5'];
+      const out = document.createElement('div');
+      out.style.cssText = 'margin-top:8px;background:rgba(0,0,0,0.2);border-radius:6px;padding:8px;font-family:monospace;font-size:10px;color:#cbd5e1;max-height:150px;overflow:auto;';
+      container.appendChild(out);
+      for (const b of backends) {
+        try {
+          const r = await fetch(`http://100.79.10.102:8996/chain/reset/${b}`, {method:'POST'});
+          const d = await r.json();
+          out.innerHTML += `<div style="color:#22c55e;">✅ ${b} → ${d.state || 'reset'}</div>`;
+        } catch (e) {
+          out.innerHTML += `<div style="color:#ef4444;">❌ ${b}: ${e.message}</div>`;
+        }
+      }
+    };
+    
+    return container;
+  }

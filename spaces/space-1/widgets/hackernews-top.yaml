@@ -1,0 +1,158 @@
+cols: 6
+id: hackernews-top
+name: Hacker News Top
+renderer: |-
+  async function hnRenderer(parent, currentSpace) {
+      const PER_PAGE = 10
+      const WID = "hackernews-top"
+      const sizes = [
+        {label:"S",cols:6,rows:5},{label:"M",cols:8,rows:7},
+        {label:"L",cols:12,rows:10},{label:"XL",cols:16,rows:14}
+      ]
+      const sizeIcons = [{w:6,h:6},{w:8,h:8},{w:11,h:11},{w:14,h:14}]
+      const accent = "#f06000"
+      const p = "hn"
+      const CACHE_KEY = "widget-hackernews-top-v3"
+      const CACHE_TTL = 5*60*1000
+  
+      parent.innerHTML = `
+        <style>
+          .${p}-root{font-family:system-ui,sans-serif;padding:clamp(6px,1.5vw,16px);color:#e0e0e0;width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+          .${p}-header{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:4px;margin-bottom:clamp(4px,1vw,8px)}
+          .${p}-title-area{display:flex;flex-direction:column;gap:2px}
+          .${p}-title-row{display:flex;align-items:center;gap:8px}
+          .${p}-header h2{margin:0;font-size:clamp(12px,2vw,18px);white-space:nowrap}
+          .${p}-minmax{background:none;border:1px solid #2d2d44;border-radius:6px;color:#8b949e;cursor:pointer;padding:2px 6px;font-size:clamp(11px,1.2vw,15px);transition:all .2s;line-height:1}
+          .${p}-minmax:hover{color:${accent};border-color:${accent}}
+          .${p}-refresh{background:none;border:1px solid #2d2d44;border-radius:6px;color:#8b949e;cursor:pointer;padding:2px 6px;font-size:clamp(11px,1.2vw,15px);transition:all .2s;line-height:1}
+          .${p}-refresh:hover{color:${accent};border-color:${accent};transform:rotate(90deg)}
+          .${p}-refresh.spinning{animation:${p}-spin .8s linear infinite}
+          @keyframes ${p}-spin{to{transform:rotate(360deg)}}
+          .${p}-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+          .${p}-date{font-size:clamp(8px,1vw,11px);color:#8b949e}
+          .${p}-updated-label{font-size:clamp(7px,.85vw,10px);color:#4a5568}
+          .${p}-controls{display:flex;align-items:center;gap:clamp(4px,.6vw,8px);flex-wrap:wrap}
+          .${p}-size-group{display:flex;gap:3px;align-items:center}
+          .${p}-size-btn{width:clamp(16px,2vw,26px);height:clamp(16px,2vw,26px);border:1.5px solid #2d2d44;border-radius:4px;background:#1a1a2e;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0}
+          .${p}-size-btn .${p}-si{background:#8b949e;border-radius:1px;transition:background .15s}
+          .${p}-size-btn.active{border-color:${accent};background:#2d1a0a}
+          .${p}-size-btn.active .${p}-si{background:${accent}}
+          .${p}-size-btn:hover:not(.active){border-color:#444}
+          .${p}-size-btn:hover:not(.active) .${p}-si{background:#aaa}
+          .${p}-list{flex:1;min-height:0;display:flex;flex-direction:column}
+          .${p}-cards{flex:1;min-height:0}
+          .${p}-card{background:#1a1a2e;border-radius:clamp(4px,.6vw,8px);padding:clamp(4px,.8vw,10px) clamp(6px,1vw,12px);margin-bottom:clamp(2px,.4vw,5px);cursor:pointer;transition:background .2s}
+          .${p}-card:hover{background:#1f1f38}
+          .${p}-card-top{display:flex;justify-content:space-between;align-items:start;gap:clamp(3px,.6vw,8px)}
+          .${p}-card-info{flex:1;min-width:0}
+          .${p}-card-name{display:flex;align-items:center;gap:clamp(3px,.5vw,6px);flex-wrap:wrap}
+          .${p}-card-rank{color:#8b949e;font-size:clamp(8px,1vw,12px);font-weight:700;min-width:16px}
+          .${p}-card-link{color:${accent};font-weight:600;text-decoration:none;font-size:clamp(9px,1.1vw,13px);word-break:break-all}
+          .${p}-card-link:hover{text-decoration:underline}
+          .${p}-card-arrow{font-size:clamp(7px,.8vw,10px);color:#6e7681}
+          .${p}-card-meta{margin:clamp(1px,.3vw,3px) 0 0 clamp(14px,2.5vw,28px);display:flex;gap:clamp(3px,.4vw,6px);flex-wrap:wrap;align-items:center}
+          .${p}-card-meta-item{font-size:clamp(7px,.8vw,10px);color:#6e7681}
+          .${p}-score{white-space:nowrap;font-size:clamp(8px,1vw,12px);color:#f0c040;font-weight:600}
+          .${p}-detail{display:none;margin-top:clamp(4px,.6vw,8px);padding-top:clamp(4px,.6vw,8px);border-top:1px solid #2d2d44}
+          .${p}-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:clamp(4px,.8vw,10px)}
+          .${p}-summary-box{background:#0d1117;border-radius:6px;padding:clamp(4px,.8vw,10px)}
+          .${p}-summary-label{font-size:clamp(8px,.9vw,11px);font-weight:700;margin-bottom:clamp(2px,.3vw,4px)}
+          .${p}-summary-text{font-size:clamp(8px,.9vw,11px);color:#c9d1d9;line-height:1.45;margin:0;word-break:break-word}
+          .${p}-loading{color:#8b949e;font-size:clamp(8px,.9vw,11px);padding:clamp(2px,.5vw,6px) 0}
+          .${p}-pager{display:flex;justify-content:center;align-items:center;gap:clamp(4px,.8vw,10px);padding:clamp(4px,.6vw,8px) 0 0;flex-shrink:0}
+          .${p}-page-btn{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;color:#8b949e;cursor:pointer;padding:clamp(2px,.4vw,5px) clamp(8px,1.2vw,14px);font-size:clamp(9px,1vw,12px);font-family:system-ui;transition:all .15s}
+          .${p}-page-btn:hover:not(:disabled){border-color:${accent};color:${accent}}
+          .${p}-page-btn:disabled{opacity:.3;cursor:default}
+          .${p}-page-info{font-size:clamp(8px,1vw,11px);color:#8b949e}
+          .${p}-mini{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:6px;padding:12px;transition:all .2s}
+          .${p}-mini:hover{background:#1a1a2e;border-radius:8px}
+          .${p}-mini-icon{font-size:clamp(20px,4vw,32px)}
+          .${p}-mini-name{font-size:clamp(10px,1.4vw,14px);font-weight:600;color:${accent};text-align:center}
+          .${p}-mini-count{font-size:clamp(8px,1vw,11px);color:#8b949e}
+          .${p}-mini-hint{font-size:clamp(7px,.8vw,9px);color:#4a5568}
+        </style>
+        <div class="${p}-root">
+          <div class="${p}-full" id="${p}-full">
+            <div class="${p}-header">
+              <div class="${p}-title-area">
+                <div class="${p}-title-row">
+                  <h2>🟠 Hacker News</h2>
+                  <button class="${p}-minmax" id="${p}-minbtn" title="Minimize">➖</button>
+                  <button class="${p}-refresh" id="${p}-refresh" title="Refresh">🔄</button>
+                </div>
+                <div class="${p}-meta">
+                  <span class="${p}-date" id="${p}-date"></span>
+                  <span class="${p}-updated-label" id="${p}-updated"></span>
+                </div>
+              </div>
+              <div class="${p}-controls"><div class="${p}-size-group" id="${p}-sizes"></div></div>
+            </div>
+            <div class="${p}-list">
+              <div class="${p}-cards" id="${p}-cards"></div>
+              <div class="${p}-pager" id="${p}-pager"></div>
+            </div>
+          </div>
+          <div class="${p}-mini" id="${p}-mini">
+            <div class="${p}-mini-icon">🟠</div>
+            <div class="${p}-mini-name">Hacker News</div>
+            <div class="${p}-mini-count" id="${p}-mini-count">20 stories</div>
+            <div class="${p}-mini-hint">click to expand</div>
+          </div>
+        </div>`
+  
+      document.getElementById(`${p}-date`).textContent = new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})
+      function setUpdated(){document.getElementById(`${p}-updated`).textContent="Updated "+new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"})}
+      setUpdated()
+  
+      // Min/Max
+      document.getElementById(`${p}-minbtn`).onclick=e=>{e.stopPropagation();document.getElementById(`${p}-full`).style.display="none";document.getElementById(`${p}-mini`).style.display="flex"}
+      document.getElementById(`${p}-mini`).onclick=()=>{document.getElementById(`${p}-mini`).style.display="none";document.getElementById(`${p}-full`).style.display="flex";document.getElementById(`${p}-full`).style.flexDirection="column";document.getElementById(`${p}-full`).style.height="100%"}
+  
+      // Size
+      const sizeGroup=document.getElementById(`${p}-sizes`)
+      sizeGroup.innerHTML=sizes.map((s,i)=>`<button class="${p}-size-btn${s.cols===6&&s.rows===10?" active":""}" data-idx="${i}" title="${s.label} (${s.cols}×${s.rows})"><span class="${p}-si" style="width:${sizeIcons[i].w}px;height:${sizeIcons[i].h}px;"></span></button>`).join("")
+      sizeGroup.querySelectorAll(`.${p}-size-btn`).forEach(btn=>{btn.onclick=async e=>{e.stopPropagation();const s=sizes[parseInt(btn.dataset.idx)];await currentSpace.renderWidget({id:WID,name:"Hacker News Top",cols:s.cols,rows:s.rows,renderer:hnRenderer})}})
+  
+      let allStories=[],currentPage=1
+      function getCached(){try{const raw=localStorage.getItem(CACHE_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.ts>CACHE_TTL)return null;return d.data}catch(e){return null}}
+      function setCached(d){try{localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:d}))}catch(e){}}
+  
+      async function fetchStories(){
+        const cached=getCached()
+        if(cached){allStories=cached;return}
+        try{
+          const res=await fetch("https://hacker-news.firebaseio.com/v0/topstories.json")
+          const ids=await res.json()
+          const stories=await Promise.all(ids.slice(0,20).map(id=>fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).then(r=>r.json())))
+          allStories=stories.map(s=>({title:s.title||"",url:s.url||`https://news.ycombinator.com/item?id=${s.id}`,by:s.by||"",score:s.score||0,comments:s.descendants||0}))
+          setCached(allStories)
+        }catch(e){allStories=allStories.length?allStories:[]}
+      }
+      await fetchStories()
+      document.getElementById(`${p}-mini-count`).textContent=`${allStories.length} stories`
+  
+      // Refresh
+      document.getElementById(`${p}-refresh`).onclick=async()=>{const btn=document.getElementById(`${p}-refresh`);btn.classList.add("spinning");localStorage.removeItem(CACHE_KEY);currentPage=1;await fetchStories();setUpdated();renderPage();btn.classList.remove("spinning")}
+  
+      async function translateToRo(text){try{const res=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0,500))}&langpair=en|ro`);const d=await res.json();return d.responseData?.translatedText||text}catch(e){return text}}
+  
+      function renderPage(){
+        const totalPages=Math.max(1,Math.ceil(allStories.length/PER_PAGE))
+        const start=(currentPage-1)*PER_PAGE
+        const slice=allStories.slice(start,start+PER_PAGE)
+        const cards=document.getElementById(`${p}-cards`)
+        if(!slice.length){cards.innerHTML=`<div class="${p}-loading">No stories found.</div>`}
+        else{
+          cards.innerHTML=slice.map((r,i)=>{const rank=start+i+1;return`<div class="${p}-card" data-idx="${start+i}"><div class="${p}-card-top"><div class="${p}-card-info"><div class="${p}-card-name"><span class="${p}-card-rank">#${rank}</span><a href="${r.url}" target="_blank" onclick="event.stopPropagation()" class="${p}-card-link">${r.title}</a><span class="${p}-card-arrow">▼</span></div><div class="${p}-card-meta"><span class="${p}-card-meta-item">by ${r.by}</span><span class="${p}-card-meta-item">${r.comments} comments</span></div></div><div class="${p}-score">▲ ${r.score}</div></div><div class="${p}-detail"></div></div>`}).join("")
+          cards.querySelectorAll(`.${p}-card`).forEach(card=>{card.onclick=async()=>{const detail=card.querySelector(`.${p}-detail`);if(detail.style.display==="block"&&detail.innerHTML){detail.style.display="none";return}const idx=parseInt(card.dataset.idx);const story=allStories[idx];detail.innerHTML=`<div class="${p}-loading">Loading summary…</div>`;detail.style.display="block";const en=story.title||"No title.";const ro=await translateToRo(en);detail.innerHTML=`<div class="${p}-summary-grid"><div class="${p}-summary-box"><div class="${p}-summary-label" style="color:${accent};">🇬🇧 English</div><p class="${p}-summary-text">${en}</p></div><div class="${p}-summary-box"><div class="${p}-summary-label" style="color:#f97316;">🇷🇴 Română</div><p class="${p}-summary-text">${ro}</p></div></div>`}})
+        }
+        const pager=document.getElementById(`${p}-pager`)
+        if(totalPages<=1){pager.innerHTML="";return}
+        pager.innerHTML=`<button class="${p}-page-btn" id="${p}-prev" ${currentPage<=1?"disabled":""}>◀ Prev</button><span class="${p}-page-info">Page ${currentPage} of ${totalPages}</span><button class="${p}-page-btn" id="${p}-next" ${currentPage>=totalPages?"disabled":""}>Next ▶</button>`
+        document.getElementById(`${p}-prev`).onclick=()=>{if(currentPage>1){currentPage--;renderPage()}}
+        document.getElementById(`${p}-next`).onclick=()=>{if(currentPage<totalPages){currentPage++;renderPage()}}
+      }
+      renderPage()
+    }
+rows: 10
+schema: space-widget/v1

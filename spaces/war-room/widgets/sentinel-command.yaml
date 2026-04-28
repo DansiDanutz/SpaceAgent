@@ -1,0 +1,112 @@
+schema: space-widget/v1
+cols: 6
+rows: 5
+title: Sentinel Command
+refresh_interval: 30000
+renderer: |
+  async function(api) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:12px;font-family:system-ui;height:100%;overflow:auto;';
+    
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;';
+    header.innerHTML = '<span style="font-weight:600;font-size:14px;color:#e2e8f0;">🛡️ Sentinel</span><span id="sent-last-update" style="font-size:10px;color:#64748b;">loading...</span>';
+    container.appendChild(header);
+    
+    // Control buttons
+    const controls = document.createElement('div');
+    controls.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;';
+    controls.innerHTML = `
+      <button id="btn-probe" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;">🔄 Trigger Probe</button>
+      <button id="btn-status" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;">📊 Status</button>
+      <button id="btn-baseline" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;">📋 Baseline</button>
+    `;
+    container.appendChild(controls);
+    
+    const output = document.createElement('div');
+    output.id = 'sent-output';
+    output.style.cssText = 'font-size:10px;color:#94a3b8;max-height:160px;overflow:auto;background:rgba(0,0,0,0.2);border-radius:6px;padding:8px;';
+    output.innerHTML = '<div style="color:#64748b;">Click buttons to execute commands...</div>';
+    container.appendChild(output);
+    
+    function log(msg, color='#94a3b8') {
+      const line = document.createElement('div');
+      line.style.cssText = `color:${color};margin-bottom:2px;font-family:monospace;font-size:10px;`;
+      line.textContent = `[${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}] ${msg}`;
+      output.appendChild(line);
+      output.scrollTop = output.scrollHeight;
+    }
+    
+    async function doProbe() {
+      log('POST /probe/trigger ...', '#3b82f6');
+      try {
+        const r = await fetch('http://100.79.10.102:18790/probe/trigger', { method: 'POST', cache: 'no-store' });
+        const data = await r.json();
+        if (data.triggered) {
+          const results = data.results || [];
+          const ok = results.filter(x => x.status === 'ok').length;
+          const warn = results.filter(x => x.status === 'warn').length;
+          const crit = results.filter(x => x.status === 'crit').length;
+          log(`Probe complete: ${ok} OK, ${warn} warn, ${crit} crit`, ok === results.length ? '#22c55e' : '#f59e0b');
+          for (const p of results) {
+            const issues = p.issues || [];
+            if (issues.length) {
+              log(`  ${p.agent}: ${issues.join(' | ')}`, '#ef4444');
+            } else {
+              log(`  ${p.agent}: OK (${p.ram_free_mb ? Math.round(p.ram_free_mb)+'MB' : ''} ${p.latency_ms ? Math.round(p.latency_ms)+'ms' : ''})`, '#22c55e');
+            }
+          }
+        }
+      } catch (e) {
+        log('ERROR: ' + e.message, '#ef4444');
+      }
+    }
+    
+    async function doStatus() {
+      log('GET /status ...', '#3b82f6');
+      try {
+        const r = await fetch('http://100.79.10.102:18790/status', { cache: 'no-store' });
+        const data = await r.json();
+        if (data.ready) {
+          log(`All OK: ${data.all_ok} · Agents: ${data.agents} · Warnings: ${data.warnings?.join(', ') || 'none'} · Critical: ${data.critical?.join(', ') || 'none'}`, data.all_ok ? '#22c55e' : '#f59e0b');
+        } else {
+          log('Sentinel not ready yet', '#f59e0b');
+        }
+      } catch (e) {
+        log('ERROR: ' + e.message, '#ef4444');
+      }
+    }
+    
+    async function doBaseline() {
+      log('GET /tripwire/baseline ...', '#3b82f6');
+      try {
+        const r = await fetch('http://100.79.10.102:18790/tripwire/baseline', { cache: 'no-store' });
+        const data = await r.json();
+        const baseline = data.baseline || {};
+        const files = Object.keys(baseline);
+        log(`Baseline files: ${files.length}`, '#22c55e');
+        for (const f of files.slice(0, 5)) {
+          log(`  ${f}: ${baseline[f].substring(0, 16)}...`, '#64748b');
+        }
+        if (files.length > 5) log(`  ... and ${files.length - 5} more`, '#64748b');
+      } catch (e) {
+        log('ERROR: ' + e.message, '#ef4444');
+      }
+    }
+    
+    container.querySelector('#btn-probe').onclick = doProbe;
+    container.querySelector('#btn-status').onclick = doStatus;
+    container.querySelector('#btn-baseline').onclick = doBaseline;
+    
+    // Auto status on load
+    await doStatus();
+    container.querySelector('#sent-last-update').textContent = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' EET';
+    
+    const interval = setInterval(async () => {
+      await doStatus();
+      container.querySelector('#sent-last-update').textContent = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' EET';
+    }, 30000);
+    container._cleanup = () => clearInterval(interval);
+    
+    return container;
+  }

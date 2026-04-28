@@ -1,0 +1,111 @@
+cols: 6
+id: docker-trends
+name: Docker Trends
+renderer: |-
+  async (parent) => {
+    const CACHE_KEY = "widget-docker-trends-v1"
+    const CACHE_TTL = 5 * 60 * 1000
+    function getCached() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY)
+        if (!raw) return null
+        const parsed = JSON.parse(raw)
+        if (Date.now() - parsed.ts > CACHE_TTL) return null
+        return parsed.data
+      } catch (e) { return null }
+    }
+    function setCached(data) {
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })) } catch (e) {}
+    }
+
+    parent.innerHTML = `
+      <style>
+        .dk-root {
+          font-family: system-ui, sans-serif;
+          padding: clamp(8px, 2vw, 16px);
+          color: #e0e0e0;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        .dk-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: clamp(6px, 1.5vw, 12px);
+        }
+        .dk-header h2 {
+          margin: 0;
+          font-size: clamp(14px, 2.5vw, 20px);
+        }
+        .dk-list {
+          flex: 1;
+          overflow-y: auto;
+          min-height: 0;
+        }
+        .dk-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: clamp(4px, 1vw, 8px) 0;
+          border-bottom: 1px solid #2d2d44;
+        }
+        .dk-rank {
+          color: #8b949e;
+          font-size: clamp(11px, 1.4vw, 14px);
+          font-weight: 700;
+          min-width: 22px;
+        }
+        .dk-name {
+          color: #58a6ff;
+          text-decoration: none;
+          font-size: clamp(10px, 1.3vw, 14px);
+          font-weight: 600;
+          word-break: break-word;
+          flex: 1;
+        }
+        .dk-meta {
+          font-size: clamp(9px, 1.1vw, 12px);
+          color: #8b949e;
+        }
+        .dk-loading { color: #8b949e; font-size: 12px; }
+      </style>
+      <div class="dk-root">
+        <div class="dk-header">
+          <h2>🐳 Docker Trends</h2>
+        </div>
+        <div class="dk-list" id="dk-list">
+          <div class="dk-loading">Loading trending images...</div>
+        </div>
+      </div>`
+
+    const list = document.getElementById("dk-list")
+    const cached = getCached()
+    if (cached) {
+      list.innerHTML = cached
+      return
+    }
+
+    try {
+      const res = await fetch("https://hub.docker.com/api/search/v3/catalog/search?from=0&size=15&sort=popularity&order=desc")
+      const data = await res.json()
+      const images = data.results || []
+
+      const html = images.map((img, i) => `
+        <div class="dk-item">
+          <span class="dk-rank">${i + 1}.</span>
+          <a class="dk-name" href="https://hub.docker.com/r/${img.source}" target="_blank" onclick="event.stopPropagation()">${img.source || img.name}</a>
+          <span class="dk-meta">⭐ ${img.popularity?.toLocaleString?.() || img.pull_count || "N/A"}</span>
+        </div>
+      `).join("")
+      setCached(html)
+      list.innerHTML = html
+    } catch (e) {
+      list.innerHTML = `<div class="dk-loading">Error loading trends.</div>`
+    }
+  }
+rows: 10
+schema: space-widget/v1

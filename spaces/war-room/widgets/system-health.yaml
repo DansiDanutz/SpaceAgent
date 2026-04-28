@@ -1,0 +1,105 @@
+schema: space-widget/v1
+cols: 6
+rows: 5
+title: System Health
+refresh_interval: 30000
+renderer: |
+  async function(api) {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:12px;font-family:system-ui;height:100%;overflow:auto;';
+    
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;';
+    header.innerHTML = '<span style="font-weight:600;font-size:14px;color:#e2e8f0;">🖥️ Fleet Health</span><span id="sys-last-update" style="font-size:10px;color:#64748b;">loading...</span>';
+    container.appendChild(header);
+    
+    const grid = document.createElement('div');
+    grid.id = 'sys-grid';
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:6px;';
+    grid.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;padding:20px;">⏳ Fetching Sentinel probes...</div>';
+    container.appendChild(grid);
+    
+    async function fetchHealth() {
+      try {
+        const [probeResp, coordResp] = await Promise.all([
+          fetch('http://100.79.10.102:18790/probes', { cache: 'no-store' }).catch(() => null),
+          fetch('http://100.79.10.102:8996/health', { cache: 'no-store' }).catch(() => null)
+        ]);
+        
+        let html = '';
+        
+        if (probeResp && probeResp.ok) {
+          const probeData = await probeResp.json();
+          const probes = probeData.probes || [];
+          
+          for (const p of probes) {
+            const statusColor = p.status === 'ok' ? '#22c55e' : p.status === 'warn' ? '#f59e0b' : '#ef4444';
+            const statusBg = p.status === 'ok' ? 'rgba(34,197,94,0.08)' : p.status === 'warn' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+            const issues = p.issues || [];
+            
+            let metrics = '';
+            if (p.ram_free_mb !== null && p.ram_free_mb !== undefined) {
+              metrics += `<span style="font-size:9px;color:#94a3b8;background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;">RAM ${Math.round(p.ram_free_mb)}MB free</span>`;
+            }
+            if (p.disk_used_pct !== null && p.disk_used_pct !== undefined) {
+              const diskColor = p.disk_used_pct > 85 ? '#ef4444' : '#94a3b8';
+              metrics += `<span style="font-size:9px;color:${diskColor};background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;">DISK ${Math.round(p.disk_used_pct)}%</span>`;
+            }
+            if (p.latency_ms !== null && p.latency_ms !== undefined) {
+              metrics += `<span style="font-size:9px;color:#94a3b8;background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;">${Math.round(p.latency_ms)}ms</span>`;
+            }
+            if (p.balancer_ok === true) metrics += `<span style="font-size:9px;color:#22c55e;background:rgba(34,197,94,0.1);padding:1px 5px;border-radius:4px;">balancer</span>`;
+            if (p.balancer_ok === false) metrics += `<span style="font-size:9px;color:#ef4444;background:rgba(239,68,68,0.1);padding:1px 5px;border-radius:4px;">balancer✗</span>`;
+            if (p.ollama_ok === true) metrics += `<span style="font-size:9px;color:#22c55e;background:rgba(34,197,94,0.1);padding:1px 5px;border-radius:4px;">ollama</span>`;
+            if (p.ollama_ok === false) metrics += `<span style="font-size:9px;color:#ef4444;background:rgba(239,68,68,0.1);padding:1px 5px;border-radius:4px;">ollama✗</span>`;
+            if (p.ssh_ok === false) metrics += `<span style="font-size:9px;color:#ef4444;background:rgba(239,68,68,0.1);padding:1px 5px;border-radius:4px;">SSH✗</span>`;
+            if (p.gateway_ok === false) metrics += `<span style="font-size:9px;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 5px;border-radius:4px;">gateway✗</span>`;
+            
+            html += `<div style="background:${statusBg};border:1px solid ${statusColor}25;border-radius:8px;padding:8px 10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="width:7px;height:7px;border-radius:50%;background:${statusColor};box-shadow:0 0 5px ${statusColor}60;"></div>
+                  <span style="font-size:12px;font-weight:600;color:#e2e8f0;">${p.agent}</span>
+                </div>
+                <span style="font-size:9px;color:${statusColor};text-transform:uppercase;font-weight:600;">${p.status}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:3px;">${metrics}</div>
+              ${issues.length ? `<div style="margin-top:4px;font-size:9px;color:#ef4444;">⚠️ ${issues.join(' · ')}</div>` : ''}
+            </div>`;
+          }
+        } else {
+          html += `<div style="color:#ef4444;font-size:12px;text-align:center;padding:12px;">🔴 Sentinel unreachable</div>`;
+        }
+        
+        if (coordResp && coordResp.ok) {
+          const coord = await coordResp.json();
+          const coordColor = coord.status === 'ok' ? '#22c55e' : '#ef4444';
+          const safeColor = coord.safe_mode ? '#ef4444' : '#22c55e';
+          html += `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;font-weight:600;color:#e2e8f0;">⚡ Coordinator</span>
+              <span style="font-size:9px;color:${coordColor};font-weight:600;">${coord.backends_ok}/${coord.backends_total} backends</span>
+            </div>
+            <div style="display:flex;gap:4px;margin-top:4px;">
+              <span style="font-size:9px;color:${safeColor};background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;">safe_mode: ${coord.safe_mode}</span>
+              <span style="font-size:9px;color:#94a3b8;background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;">queue: ${coord.queue_depth}</span>
+            </div>
+          </div>`;
+        } else {
+          html += `<div style="color:#ef4444;font-size:12px;text-align:center;padding:12px;">🔴 Coordinator unreachable</div>`;
+        }
+        
+        grid.innerHTML = html;
+        container.querySelector('#sys-last-update').textContent = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' EET';
+      } catch (e) {
+        grid.innerHTML = `<div style="color:#ef4444;font-size:12px;text-align:center;padding:20px;">🔴 Health check failed<br/><span style="font-size:10px;color:#64748b;">${e.message}</span></div>`;
+        container.querySelector('#sys-last-update').textContent = 'failed';
+      }
+    }
+    
+    await fetchHealth();
+    const interval = setInterval(fetchHealth, 30000);
+    container._cleanup = () => clearInterval(interval);
+    
+    return container;
+  }
