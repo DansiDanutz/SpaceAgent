@@ -23,7 +23,7 @@ module.exports = function resolveSpace(targetWindow, key) {
 `);
   assert.equal(applyAdminExecutionPatch(root), true);
   delete require.cache[require.resolve(target)];
-  return { resolveSpace: require(target), target };
+  return { resolveSpace: require(target), root, target };
 }
 
 test("patch preserves an existing spaces API while supplying current fallbacks", async () => {
@@ -43,4 +43,23 @@ test("patch preserves an existing current API while supplying spaces fallbacks",
   assert.equal(patched.current, current);
   assert.deepEqual(await patched.spaces.listSpaces(), []);
   assert.match(readFileSync(target, "utf8"), /Reflect\.get\(target, prop, receiver\)/u);
+});
+
+test("patch upgrades installations carrying the previous fallback body", async () => {
+  const { root, target } = installFixture();
+  const current = readFileSync(target, "utf8");
+  const legacy = current
+    .replace("get(target, prop, receiver)", "get(target, prop)")
+    .replace('                if (target.spaces) return target.spaces;\n', "")
+    .replace('                if (target.current) return target.current;\n', "")
+    .replace("Reflect.get(target, prop, receiver)", "target[prop]");
+  writeFileSync(target, legacy);
+
+  assert.equal(applyAdminExecutionPatch(root), true);
+  delete require.cache[require.resolve(target)];
+  const resolveSpace = require(target);
+  const spaces = { listSpaces: async () => ["existing-space"] };
+
+  assert.equal(resolveSpace({ space: { spaces } }, "space").spaces, spaces);
+  assert.match(readFileSync(target, "utf8"), /if \(target\.current\) return target\.current/u);
 });

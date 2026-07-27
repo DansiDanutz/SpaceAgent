@@ -24,7 +24,7 @@ if (-not (Test-Path $targetFile)) {
 
 # Check if already patched
 $content = Get-Content $targetFile -Raw
-if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces') {
+if ($content.Contains('if (target.spaces) return target.spaces') -and $content.Contains('if (target.current) return target.current')) {
     Write-Host "Admin execution patch already applied." -ForegroundColor Yellow
 } else {
     Copy-Item $targetFile $backupFile
@@ -82,8 +82,15 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
       }
 '@
 
-    if ($content.Contains($oldCode)) {
-        $content = $content.Replace($oldCode, $newCode)
+    $legacyCode = $newCode.Replace('get(target, prop, receiver)', 'get(target, prop)')
+    $legacyCode = $legacyCode.Replace('                if (target.spaces) return target.spaces;', '')
+    $legacyCode = $legacyCode.Replace('                if (target.current) return target.current;', '')
+    $legacyCode = $legacyCode.Replace('Reflect.get(target, prop, receiver)', 'target[prop]')
+
+    $codeToReplace = if ($content.Contains($legacyCode)) { $legacyCode } else { $oldCode }
+
+    if ($content.Contains($codeToReplace)) {
+        $content = $content.Replace($codeToReplace, $newCode)
         Set-Content $targetFile $content -NoNewline
         Write-Host "Admin execution patch applied successfully." -ForegroundColor Green
     } else {

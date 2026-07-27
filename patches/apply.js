@@ -43,8 +43,8 @@ function applyAdminExecutionPatch(spaceAgentRoot = defaultSpaceAgentRoot()) {
 
   let content = fs.readFileSync(targetFile, "utf8");
 
-  // Check if already patched
-  if (content.includes("!space.spaces") && content.includes("!space.current")) {
+  // Check specifically for this revision; older patch bodies must be upgraded.
+  if (content.includes("if (target.spaces) return target.spaces") && content.includes("if (target.current) return target.current")) {
     console.log("Admin execution patch already applied.");
     return true;
   }
@@ -97,13 +97,20 @@ function applyAdminExecutionPatch(spaceAgentRoot = defaultSpaceAgentRoot()) {
         return space;
       }`;
 
-  if (!content.includes(oldCode)) {
+  const legacyCode = newCode
+    .replace("get(target, prop, receiver)", "get(target, prop)")
+    .replace('                if (target.spaces) return target.spaces;\n', "")
+    .replace('                if (target.current) return target.current;\n', "")
+    .replace("Reflect.get(target, prop, receiver)", "target[prop]");
+
+  const codeToReplace = content.includes(legacyCode) ? legacyCode : oldCode;
+  if (!content.includes(codeToReplace)) {
     console.error(`Could not find expected code pattern in ${targetFile}`);
     return false;
   }
 
   backupFile(targetFile);
-  content = content.replace(oldCode, newCode);
+  content = content.replace(codeToReplace, newCode);
   fs.writeFileSync(targetFile, content, "utf8");
   console.log("Admin execution patch applied successfully.");
   return true;
