@@ -12,3 +12,11 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Local secrets and patch backups
+.env
+.env.*
+!.env.example
+conf/*.local.yaml
+conf/*.private.yaml
+*.backup-*

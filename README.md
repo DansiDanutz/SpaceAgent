@@ -97,7 +97,9 @@ See [`patches/README.md`](patches/README.md) for details.
 
 ## API Keys
 
-API keys are stored in the local `.env` (not committed) and referenced by the onscreen agent config. The War Room widgets fetch from live Tailscale endpoints — no keys needed for read access. Write endpoints on SemeClaw are currently in open mode.
+Provider keys must never be committed. After cloning, configure the onscreen agent through Space Agent's settings UI so supported multi-user runtimes encrypt the stored value. Keep `conf/onscreen-agent.yaml` with a blank `api_key` in source control. If a plaintext key enters Git history, revoke and replace it before using this profile again.
+
+The War Room widgets fetch from live Tailscale endpoints. Treat every mutating widget as operator-only: the current upstream services do not provide a repository-verifiable authentication boundary, so write actions must remain disabled until those services enforce authentication.
 
 ## Git History
 
