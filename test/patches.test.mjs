@@ -63,3 +63,13 @@ test("patch upgrades installations carrying the previous fallback body", async (
   assert.equal(resolveSpace({ space: { spaces } }, "space").spaces, spaces);
   assert.match(readFileSync(target, "utf8"), /if \(target\.current\) return target\.current/u);
 });
+
+test("PowerShell upgrade recipe derives the exact legacy body safely", () => {
+  const source = readFileSync(new URL("../patches/apply.ps1", import.meta.url), "utf8");
+  const reflectReplacement = source.indexOf("$newCode.Replace('Reflect.get(target, prop, receiver)', 'target[prop]')");
+  const getterReplacement = source.indexOf("$legacyCode.Replace('get(target, prop, receiver)', 'get(target, prop)')");
+
+  assert.ok(reflectReplacement >= 0 && getterReplacement > reflectReplacement);
+  assert.ok(source.includes("(?m)^[ \\t]*if \\(target\\.spaces\\) return target\\.spaces;\\r?\\n"));
+  assert.ok(source.includes("(?m)^[ \\t]*if \\(target\\.current\\) return target\\.current;\\r?\\n"));
+});

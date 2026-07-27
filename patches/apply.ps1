@@ -82,10 +82,10 @@ if ($content.Contains('if (target.spaces) return target.spaces') -and $content.C
       }
 '@
 
-    $legacyCode = $newCode.Replace('get(target, prop, receiver)', 'get(target, prop)')
-    $legacyCode = $legacyCode.Replace('                if (target.spaces) return target.spaces;', '')
-    $legacyCode = $legacyCode.Replace('                if (target.current) return target.current;', '')
-    $legacyCode = $legacyCode.Replace('Reflect.get(target, prop, receiver)', 'target[prop]')
+    $legacyCode = $newCode.Replace('Reflect.get(target, prop, receiver)', 'target[prop]')
+    $legacyCode = $legacyCode.Replace('get(target, prop, receiver)', 'get(target, prop)')
+    $legacyCode = $legacyCode -replace '(?m)^[ \t]*if \(target\.spaces\) return target\.spaces;\r?\n', ''
+    $legacyCode = $legacyCode -replace '(?m)^[ \t]*if \(target\.current\) return target\.current;\r?\n', ''
 
     $codeToReplace = if ($content.Contains($legacyCode)) { $legacyCode } else { $oldCode }
 
