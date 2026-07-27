@@ -10,7 +10,7 @@ These patches fix bugs in the installed Space Agent core (L0 firmware) that affe
 
 **Root cause:** The Admin panel loads its own execution context and does NOT import the spaces dashboard module. Therefore `globalThis.space.spaces` and `globalThis.space.current` are undefined. The admin agent system prompt instructs the LLM to call these APIs, causing a crash on every admin session.
 
-**Fix:** Wrap `targetWindow.space` in a Proxy that provides stub implementations for `spaces` and `current` when they are missing:
+**Fix:** Wrap `targetWindow.space` in a Proxy that provides stub implementations only for the individual `spaces` or `current` namespace when it is missing. Existing namespaces remain untouched:
 - `space.spaces.listSpaces()` → returns `[]`
 - `space.spaces.openSpace()` → throws descriptive error
 - `space.current.readWidget()` → throws descriptive error suggesting `space.api.fileRead()`

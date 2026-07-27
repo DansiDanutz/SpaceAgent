@@ -42,8 +42,9 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
 
         if (space && (!space.spaces || !space.current)) {
           return new Proxy(space, {
-            get(target, prop) {
+            get(target, prop, receiver) {
               if (prop === "spaces") {
+                if (target.spaces) return target.spaces;
                 return {
                   all: [],
                   byId: {},
@@ -55,6 +56,7 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
               }
 
               if (prop === "current") {
+                if (target.current) return target.current;
                 return {
                   readWidget: async () => {
                     throw new Error("space.current.readWidget() is not available in the Admin context. Use space.api.fileRead() instead.");
@@ -71,7 +73,7 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
                 };
               }
 
-              return target[prop];
+              return Reflect.get(target, prop, receiver);
             }
           });
         }

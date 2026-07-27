@@ -7,13 +7,12 @@
 const fs = require("fs");
 const path = require("path");
 
-const SPACE_AGENT_ROOT = path.join(
-  process.env.LOCALAPPDATA,
-  "Programs",
-  "space-agent",
-  "resources",
-  "app"
-);
+function defaultSpaceAgentRoot() {
+  if (!process.env.LOCALAPPDATA) {
+    throw new Error("LOCALAPPDATA is required to locate Space Agent");
+  }
+  return path.join(process.env.LOCALAPPDATA, "Programs", "space-agent", "resources", "app");
+}
 
 function backupFile(filePath) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
@@ -23,9 +22,9 @@ function backupFile(filePath) {
   return backupPath;
 }
 
-function applyAdminExecutionPatch() {
+function applyAdminExecutionPatch(spaceAgentRoot = defaultSpaceAgentRoot()) {
   const targetFile = path.join(
-    SPACE_AGENT_ROOT,
+    spaceAgentRoot,
     "app",
     "L0",
     "_all",
@@ -59,8 +58,9 @@ function applyAdminExecutionPatch() {
 
         if (space && (!space.spaces || !space.current)) {
           return new Proxy(space, {
-            get(target, prop) {
+            get(target, prop, receiver) {
               if (prop === "spaces") {
+                if (target.spaces) return target.spaces;
                 return {
                   all: [],
                   byId: {},
@@ -72,6 +72,7 @@ function applyAdminExecutionPatch() {
               }
 
               if (prop === "current") {
+                if (target.current) return target.current;
                 return {
                   readWidget: async () => {
                     throw new Error("space.current.readWidget() is not available in the Admin context. Use space.api.fileRead() instead.");
@@ -88,7 +89,7 @@ function applyAdminExecutionPatch() {
                 };
               }
 
-              return target[prop];
+              return Reflect.get(target, prop, receiver);
             }
           });
         }
@@ -109,18 +110,21 @@ function applyAdminExecutionPatch() {
 }
 
 function main() {
-  if (!fs.existsSync(SPACE_AGENT_ROOT)) {
-    console.error(`Space Agent not found at ${SPACE_AGENT_ROOT}`);
+  const spaceAgentRoot = defaultSpaceAgentRoot();
+  if (!fs.existsSync(spaceAgentRoot)) {
+    console.error(`Space Agent not found at ${spaceAgentRoot}`);
     process.exit(1);
   }
 
-  console.log(`Space Agent found at: ${SPACE_AGENT_ROOT}\n`);
+  console.log(`Space Agent found at: ${spaceAgentRoot}\n`);
 
   let ok = true;
-  ok = applyAdminExecutionPatch() && ok;
+  ok = applyAdminExecutionPatch(spaceAgentRoot) && ok;
 
   console.log("\nAll patches applied. Restart Space Agent for changes to take effect.");
   process.exit(ok ? 0 : 1);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { applyAdminExecutionPatch };
