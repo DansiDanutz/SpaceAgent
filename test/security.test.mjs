@@ -23,3 +23,10 @@ test("tracked files contain no common live-secret shapes", () => {
     for (const pattern of patterns) assert.doesNotMatch(content, pattern, `${file} contains a secret-shaped value`);
   }
 });
+
+test("transient and secret-bearing local files remain ignored", () => {
+  const ignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
+  for (const pattern of ["hist/", "*.log", ".cache/", ".DS_Store", "Thumbs.db", ".vscode/", ".idea/", ".env", "conf/*.private.yaml"]) {
+    assert.ok(ignore.split("\n").includes(pattern), `missing ignore rule: ${pattern}`);
+  }
+});

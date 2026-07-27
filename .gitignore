@@ -1,3 +1,19 @@
+# Space Agent Customware — Transient Data
+# Do not commit session history, caches, or logs
+
+hist/
+*.log
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Local secrets and patch backups
 .env
 .env.*
 !.env.example
