@@ -1,5 +1,5 @@
 api_endpoint: "https://api.z.ai/api/coding/paas/v4/chat/completions"
-api_key: 4e9471d4c3e744a1982aa5af1b114ce7.f8lbPkqjVUsCHTrr
+api_key: ""
 huggingface_dtype: q4
 huggingface_model: ""
 local_provider: huggingface
