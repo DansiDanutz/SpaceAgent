@@ -24,7 +24,7 @@ if (-not (Test-Path $targetFile)) {
 
 # Check if already patched
 $content = Get-Content $targetFile -Raw
-if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces') {
+if ($content.Contains('if (target.spaces) return target.spaces') -and $content.Contains('if (target.current) return target.current')) {
     Write-Host "Admin execution patch already applied." -ForegroundColor Yellow
 } else {
     Copy-Item $targetFile $backupFile
@@ -42,8 +42,9 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
 
         if (space && (!space.spaces || !space.current)) {
           return new Proxy(space, {
-            get(target, prop) {
+            get(target, prop, receiver) {
               if (prop === "spaces") {
+                if (target.spaces) return target.spaces;
                 return {
                   all: [],
                   byId: {},
@@ -55,6 +56,7 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
               }
 
               if (prop === "current") {
+                if (target.current) return target.current;
                 return {
                   readWidget: async () => {
                     throw new Error("space.current.readWidget() is not available in the Admin context. Use space.api.fileRead() instead.");
@@ -71,7 +73,7 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
                 };
               }
 
-              return target[prop];
+              return Reflect.get(target, prop, receiver);
             }
           });
         }
@@ -80,8 +82,15 @@ if ($content -match 'space\.spaces\s*-\s*>' -or $content -match '!space\.spaces'
       }
 '@
 
-    if ($content.Contains($oldCode)) {
-        $content = $content.Replace($oldCode, $newCode)
+    $legacyCode = $newCode.Replace('Reflect.get(target, prop, receiver)', 'target[prop]')
+    $legacyCode = $legacyCode.Replace('get(target, prop, receiver)', 'get(target, prop)')
+    $legacyCode = $legacyCode -replace '(?m)^[ \t]*if \(target\.spaces\) return target\.spaces;\r?\n', ''
+    $legacyCode = $legacyCode -replace '(?m)^[ \t]*if \(target\.current\) return target\.current;\r?\n', ''
+
+    $codeToReplace = if ($content.Contains($legacyCode)) { $legacyCode } else { $oldCode }
+
+    if ($content.Contains($codeToReplace)) {
+        $content = $content.Replace($codeToReplace, $newCode)
         Set-Content $targetFile $content -NoNewline
         Write-Host "Admin execution patch applied successfully." -ForegroundColor Green
     } else {

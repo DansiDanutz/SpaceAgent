@@ -1,0 +1,7 @@
+{
+  "name": "space-agent-customware",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}
