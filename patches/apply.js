@@ -42,6 +42,8 @@ function applyAdminExecutionPatch(spaceAgentRoot = defaultSpaceAgentRoot()) {
   }
 
   let content = fs.readFileSync(targetFile, "utf8");
+  const usesCrlf = content.includes("\r\n");
+  content = content.replace(/\r\n/g, "\n");
 
   // Check specifically for this revision; older patch bodies must be upgraded.
   if (content.includes("if (target.spaces) return target.spaces") && content.includes("if (target.current) return target.current")) {
@@ -111,7 +113,7 @@ function applyAdminExecutionPatch(spaceAgentRoot = defaultSpaceAgentRoot()) {
 
   backupFile(targetFile);
   content = content.replace(codeToReplace, newCode);
-  fs.writeFileSync(targetFile, content, "utf8");
+  fs.writeFileSync(targetFile, usesCrlf ? content.replace(/\n/g, "\r\n") : content, "utf8");
   console.log("Admin execution patch applied successfully.");
   return true;
 }

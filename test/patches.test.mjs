@@ -64,6 +64,23 @@ test("patch upgrades installations carrying the previous fallback body", async (
   assert.match(readFileSync(target, "utf8"), /if \(target\.current\) return target\.current/u);
 });
 
+test("patch upgrades a CRLF installation and preserves its line endings", () => {
+  const { root, target } = installFixture();
+  const current = readFileSync(target, "utf8");
+  const legacy = current
+    .replace("get(target, prop, receiver)", "get(target, prop)")
+    .replace('                if (target.spaces) return target.spaces;\n', "")
+    .replace('                if (target.current) return target.current;\n', "")
+    .replace("Reflect.get(target, prop, receiver)", "target[prop]")
+    .replace(/\n/g, "\r\n");
+  writeFileSync(target, legacy);
+
+  assert.equal(applyAdminExecutionPatch(root), true);
+  const upgraded = readFileSync(target, "utf8");
+  assert.match(upgraded, /if \(target\.spaces\) return target\.spaces/u);
+  assert.doesNotMatch(upgraded, /(?<!\r)\n/u);
+});
+
 test("PowerShell upgrade recipe derives the exact legacy body safely", () => {
   const source = readFileSync(new URL("../patches/apply.ps1", import.meta.url), "utf8");
   const reflectReplacement = source.indexOf("$newCode.Replace('Reflect.get(target, prop, receiver)', 'target[prop]')");
