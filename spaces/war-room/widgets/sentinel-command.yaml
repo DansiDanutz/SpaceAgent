@@ -13,11 +13,10 @@ renderer: |
     header.innerHTML = '<span style="font-weight:600;font-size:14px;color:#e2e8f0;">🛡️ Sentinel</span><span id="sent-last-update" style="font-size:10px;color:#64748b;">loading...</span>';
     container.appendChild(header);
     
-    // Control buttons
+    // Read-only controls
     const controls = document.createElement('div');
     controls.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;';
     controls.innerHTML = `
-      <button id="btn-probe" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;">🔄 Trigger Probe</button>
       <button id="btn-status" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;">📊 Status</button>
       <button id="btn-baseline" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;">📋 Baseline</button>
     `;
@@ -35,31 +34,6 @@ renderer: |
       line.textContent = `[${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}] ${msg}`;
       output.appendChild(line);
       output.scrollTop = output.scrollHeight;
-    }
-    
-    async function doProbe() {
-      log('POST /probe/trigger ...', '#3b82f6');
-      try {
-        const r = await fetch('http://100.79.10.102:18790/probe/trigger', { method: 'POST', cache: 'no-store' });
-        const data = await r.json();
-        if (data.triggered) {
-          const results = data.results || [];
-          const ok = results.filter(x => x.status === 'ok').length;
-          const warn = results.filter(x => x.status === 'warn').length;
-          const crit = results.filter(x => x.status === 'crit').length;
-          log(`Probe complete: ${ok} OK, ${warn} warn, ${crit} crit`, ok === results.length ? '#22c55e' : '#f59e0b');
-          for (const p of results) {
-            const issues = p.issues || [];
-            if (issues.length) {
-              log(`  ${p.agent}: ${issues.join(' | ')}`, '#ef4444');
-            } else {
-              log(`  ${p.agent}: OK (${p.ram_free_mb ? Math.round(p.ram_free_mb)+'MB' : ''} ${p.latency_ms ? Math.round(p.latency_ms)+'ms' : ''})`, '#22c55e');
-            }
-          }
-        }
-      } catch (e) {
-        log('ERROR: ' + e.message, '#ef4444');
-      }
     }
     
     async function doStatus() {
@@ -94,7 +68,6 @@ renderer: |
       }
     }
     
-    container.querySelector('#btn-probe').onclick = doProbe;
     container.querySelector('#btn-status').onclick = doStatus;
     container.querySelector('#btn-baseline').onclick = doBaseline;
     

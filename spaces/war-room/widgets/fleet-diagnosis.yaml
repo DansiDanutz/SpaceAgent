@@ -126,7 +126,7 @@ renderer: |
     html += `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
       <button id="btn-check-dexter" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;">Check Dexter Services</button>
       <button id="btn-tailscale-status" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;">Tailscale Status</button>
-      <button id="btn-coordinator-reset" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;">Reset All Coordinator Backends</button>
+      <span style="color:#64748b;font-size:10px;padding:6px 0;">Coordinator reset disabled · authentication required</span>
     </div>`;
     
     grid.innerHTML = html;
@@ -146,22 +146,6 @@ renderer: |
     
     container.querySelector('#btn-tailscale-status').onclick = async () => {
       window.open('https://login.tailscale.com/admin/machines', '_blank');
-    };
-    
-    container.querySelector('#btn-coordinator-reset').onclick = async () => {
-      const backends = ['claude-balancer','claude-proxy1','claude-proxy2','ollama-coder','ollama-qwen3','openrouter-qwen','gemini-flash','zai-glm5'];
-      const out = document.createElement('div');
-      out.style.cssText = 'margin-top:8px;background:rgba(0,0,0,0.2);border-radius:6px;padding:8px;font-family:monospace;font-size:10px;color:#cbd5e1;max-height:150px;overflow:auto;';
-      container.appendChild(out);
-      for (const b of backends) {
-        try {
-          const r = await fetch(`http://100.79.10.102:8996/chain/reset/${b}`, {method:'POST'});
-          const d = await r.json();
-          out.innerHTML += `<div style="color:#22c55e;">✅ ${b} → ${d.state || 'reset'}</div>`;
-        } catch (e) {
-          out.innerHTML += `<div style="color:#ef4444;">❌ ${b}: ${e.message}</div>`;
-        }
-      }
     };
     
     return container;

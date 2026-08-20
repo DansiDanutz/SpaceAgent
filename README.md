@@ -30,9 +30,9 @@ The War Room connects to live DansLab infrastructure over Tailscale:
 | `system-health` | Sentinel `/probes` + Coordinator `/health` | RAM, disk, latency, backend status |
 | `paperclip-board` | SemeClaw `/api/state` | Connection status, tasks, metrics |
 | `nervix-status` | SemeClaw manifest + state | Capabilities, meetings, LLM backends |
-| `meeting-convene` | SemeClaw `POST /api/reports` | Type topic → auto-generates meeting |
-| `coordinator-control` | Coordinator `/chain` | Reset buttons for failed backends |
-| `sentinel-command` | Sentinel `/probe/trigger` | Trigger probes, check status, baseline |
+| `meeting-convene` | SemeClaw meeting surface | Read-only containment notice until authenticated writes exist |
+| `coordinator-control` | Coordinator `/chain` | Read-only backend health |
+| `sentinel-command` | Sentinel status/baseline | Read-only status and tripwire baseline |
 | `fleet-diagnosis` | All of the above | Root-cause analysis for every issue |
 
 ## Skills

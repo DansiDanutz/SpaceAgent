@@ -30,3 +30,31 @@ test("transient and secret-bearing local files remain ignored", () => {
     assert.ok(ignore.split("\n").includes(pattern), `missing ignore rule: ${pattern}`);
   }
 });
+
+test("War Room customware contains no unauthenticated mutation path", () => {
+  const files = [
+    "spaces/war-room/widgets/coordinator-control.yaml",
+    "spaces/war-room/widgets/fleet-diagnosis.yaml",
+    "spaces/war-room/widgets/meeting-convene.yaml",
+    "spaces/war-room/widgets/sentinel-command.yaml",
+    "skills/ext/skills/semeclaw-controller/SKILL.md",
+    "skills/ext/skills/fleet-commander/SKILL.md",
+  ];
+  const forbidden = [
+    /method\s*:\s*["']POST["']/u,
+    /curl\s+-X\s+POST/u,
+    /\/chain\/reset/u,
+    /\/meeting\/pin/u,
+    /\/probe\/trigger/u,
+  ];
+  for (const file of files) {
+    const content = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+    for (const pattern of forbidden) {
+      assert.doesNotMatch(content, pattern, `${file} retains a mutation path`);
+    }
+  }
+
+  const contract = readFileSync(new URL("../spaces/war-room/space.yaml", import.meta.url), "utf8");
+  assert.match(contract, /Write actions are intentionally unavailable/u);
+  assert.doesNotMatch(contract, /ACTIONS YOU CAN TAKE:[\s\S]*POST/u);
+});
