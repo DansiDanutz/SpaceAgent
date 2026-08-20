@@ -58,7 +58,7 @@ renderer: |
             </div>
             <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
               <span style="font-size:9px;color:${color};font-weight:600;text-transform:uppercase;">${b.state}</span>
-              ${isOpen ? `<button class="reset-btn" data-backend="${b.name}" style="background:${color};color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:9px;font-weight:600;cursor:pointer;">Reset</button>` : ''}
+              ${isOpen ? '<span style="font-size:9px;color:#64748b;">reset disabled · authentication required</span>' : ''}
             </div>
           </div>`;
         }
@@ -66,25 +66,6 @@ renderer: |
         grid.innerHTML = html;
         container.querySelector('#coord-last-update').textContent = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' EET';
         
-        // Bind reset buttons
-        grid.querySelectorAll('.reset-btn').forEach(btn => {
-          btn.onclick = async () => {
-            const name = btn.dataset.backend;
-            btn.disabled = true;
-            btn.textContent = '...';
-            try {
-              const r = await fetch(`http://100.79.10.102:8996/chain/reset/${encodeURIComponent(name)}`, { method: 'POST' });
-              const data = await r.json();
-              btn.textContent = 'OK';
-              btn.style.background = '#22c55e';
-              setTimeout(fetchBackends, 500);
-            } catch (e) {
-              btn.textContent = 'ERR';
-              btn.style.background = '#ef4444';
-            }
-            setTimeout(() => { btn.disabled = false; btn.textContent = 'Reset'; btn.style.background = '#ef4444'; }, 2000);
-          };
-        });
       } catch (e) {
         grid.innerHTML = `<div style="color:#ef4444;font-size:12px;text-align:center;padding:20px;">🔴 Coordinator unreachable<br/><span style="font-size:10px;color:#64748b;">${e.message}</span></div>`;
         container.querySelector('#coord-last-update').textContent = 'failed';
