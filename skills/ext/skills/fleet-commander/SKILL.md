@@ -67,10 +67,8 @@ curl -s http://127.0.0.1:8997/health | jq .backends
 ollama list
 launchctl list | grep ollama
 
-# Reset all coordinator backends
-curl -X POST http://127.0.0.1:8996/chain/reset/claude-balancer
-curl -X POST http://127.0.0.1:8996/chain/reset/claude-proxy1
-curl -X POST http://127.0.0.1:8996/chain/reset/claude-proxy2
+# Backend resets are intentionally unavailable until the coordinator enforces
+# authenticated operator authorization.
 ```
 
 ### 🔴 Mac Studio SSH Unreachable

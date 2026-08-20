@@ -1,7 +1,7 @@
 ---
 name: semeclaw-controller
-description: Control SemeClaw War Room — convene meetings, trigger Sentinel probes, reset LLM backends, manage reports, and monitor agent fleet health via live Tailscale API. Includes diagnosis and fix procedures.
-trigger: SemeClaw, war room, convene meeting, trigger probe, reset backend, agent health, meeting audio, report, fix, diagnose, paperclip, coordinator
+description: Monitor SemeClaw War Room health and reports through read-only Tailscale APIs. Write operations remain unavailable until authenticated operator authorization exists.
+trigger: SemeClaw, war room, agent health, report, diagnose, paperclip, coordinator
 metadata:
   loaded: auto
   placement: system
@@ -9,9 +9,9 @@ metadata:
 
 # SemeClaw Controller
 
-You have full control over the SemeClaw War Room via its HTTP API (reachable at `http://100.79.10.102` through Tailscale).
+You have read-only visibility into the SemeClaw War Room via its HTTP API (reachable at `http://100.79.10.102` through Tailscale).
 
-## Endpoints (No Auth Required — Open Mode)
+## Endpoints (Read-Only Containment)
 
 | Service | Base URL | Purpose |
 |---------|----------|---------|
@@ -47,43 +47,12 @@ You have full control over the SemeClaw War Room via its HTTP API (reachable at 
 - **Root cause**: SSH requires specific keys not present, or Tailscale SSH not fully configured.
 - **Fix**: `sudo systemsetup -setremotelogin on` on Mac Studio. Add SSH keys.
 
-## Commands
+## Write Containment
 
-### Convene a War Room Meeting
-```bash
-# 1. Create a report
-curl -X POST http://100.79.10.102:8765/api/reports \
-  -H "Content-Type: application/json" \
-  -d '{"name": "<topic-slug>.md", "content": "# <Topic>\n\n## Context\n...\n\n## Analysis\n...\n\n## Recommendation\n...\n"}'
-
-# 2. Generate meeting script
-curl "http://100.79.10.102:8765/api/meeting/script?name=<topic-slug>.md"
-
-# 3. Generate audio MP3
-curl "http://100.79.10.102:8765/api/meeting/audio?name=<topic-slug>.md" -o meeting.mp3
-
-# 4. Pin it (save permanently)
-curl -X POST "http://100.79.10.102:8765/api/meeting/pin?name=<topic-slug>.md"
-```
-
-### Trigger Sentinel Probe
-```bash
-curl -X POST http://100.79.10.102:18790/probe/trigger
-```
-
-### Reset a Coordinator Backend
-```bash
-curl -X POST "http://100.79.10.102:8996/chain/reset/<backend-name>"
-# backend-name: claude-balancer, claude-proxy1, claude-proxy2, ollama-coder, ollama-qwen3, openrouter-qwen, gemini-flash, zai-glm5
-```
-
-### Reset ALL Coordinator Backends
-```bash
-for b in claude-balancer claude-proxy1 claude-proxy2 ollama-coder ollama-qwen3 openrouter-qwen gemini-flash zai-glm5; do
-  curl -X POST "http://100.79.10.102:8996/chain/reset/$b"
-  echo "Reset $b"
-done
-```
+Meeting creation, report mutation, probe triggering, backend resets, and Paperclip
+triggers are unavailable. Do not construct or execute write requests until the
+upstream service proves authenticated operator authorization and the repository
+adds negative authorization regressions.
 
 ### Check Agent Health
 ```bash
@@ -101,16 +70,8 @@ curl "http://100.79.10.102:8765/api/reports/content?name=<report-name>"
 curl http://100.79.10.102:8996/chain | jq '.backends[] | {name: .name, state: .state, success_rate: .success_rate}'
 ```
 
-### Paperclip Trigger (creates meeting + audio + share link)
-```bash
-curl -X POST http://100.79.10.102:8765/api/paperclip/trigger \
-  -H "Content-Type: application/json" \
-  -d '{"task_markdown": "# Task Title\n\nDescription here...", "project": "nervix", "callback_url": "https://nervix.ai/webhooks/semeclaw"}'
-```
-
 ## Response Patterns
 
 When the user asks about fleet health, ALWAYS fetch live data rather than quoting cached knowledge.
-When the user asks to "convene a meeting", create the report first, then generate script + audio.
-When a backend is OPEN (failed), suggest resetting it via the coordinator API.
+When the user asks to convene a meeting, trigger a probe, or reset a backend, explain that writes are disabled pending authenticated authorization.
 When the user asks "why is paperclip disconnected", explain the 502 proxy issue and that it requires Mac Studio access to fix.

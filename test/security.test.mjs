@@ -33,20 +33,22 @@ test("transient and secret-bearing local files remain ignored", () => {
 
 test("War Room customware contains no unauthenticated mutation path", () => {
   const files = [
-    "coordinator-control.yaml",
-    "fleet-diagnosis.yaml",
-    "meeting-convene.yaml",
-    "sentinel-command.yaml",
+    "spaces/war-room/widgets/coordinator-control.yaml",
+    "spaces/war-room/widgets/fleet-diagnosis.yaml",
+    "spaces/war-room/widgets/meeting-convene.yaml",
+    "spaces/war-room/widgets/sentinel-command.yaml",
+    "skills/ext/skills/semeclaw-controller/SKILL.md",
+    "skills/ext/skills/fleet-commander/SKILL.md",
   ];
   const forbidden = [
     /method\s*:\s*["']POST["']/u,
+    /curl\s+-X\s+POST/u,
     /\/chain\/reset/u,
-    /\/api\/reports/u,
     /\/meeting\/pin/u,
     /\/probe\/trigger/u,
   ];
   for (const file of files) {
-    const content = readFileSync(new URL(`../spaces/war-room/widgets/${file}`, import.meta.url), "utf8");
+    const content = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
     for (const pattern of forbidden) {
       assert.doesNotMatch(content, pattern, `${file} retains a mutation path`);
     }
